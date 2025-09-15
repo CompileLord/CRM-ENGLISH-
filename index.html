@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduCRM - Система управления обучением</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="lucide.js"></script>
+    <script src="chart.js"></script>
+</head>
+<body>
+    <!-- Боковая панель -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <i data-lucide="graduation-cap"></i>
+            <h2>EduCRM</h2>
+        </div>
+        <nav class="sidebar-nav">
+            <ul>
+                <li class="nav-item active" data-section="dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Дашборд</span>
+                </li>
+                <li class="nav-item" data-section="students">
+                    <i data-lucide="users"></i>
+                    <span>Студенты</span>
+                </li>
+                <li class="nav-item" data-section="groups">
+                    <i data-lucide="users-2"></i>
+                    <span>Группы</span>
+                </li>
+                <li class="nav-item" data-section="journal">
+                    <i data-lucide="clipboard-list"></i>
+                    <span>Журнал</span>
+                </li>
+                <li class="nav-item" data-section="reports">
+                    <i data-lucide="bar-chart-3"></i>
+                    <span>Отчеты</span>
+                </li>
+                <li class="nav-item" data-section="settings">
+                    <i data-lucide="settings"></i>
+                    <span>Настройки</span>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <!-- Основной контент -->
+    <main class="main-content">
+        <!-- Шапка -->
+        <header class="header">
+            <div class="header-left">
+                <h1 id="page-title">Дашборд</h1>
+                <p id="page-subtitle">Обзор системы управления обучением</p>
+            </div>
+            <div class="header-right">
+                <div class="notification-btn">
+                    <i data-lucide="bell"></i>
+                    <span class="notification-badge">3</span>
+                </div>
+                <div class="user-info">
+                    <i data-lucide="user"></i>
+                    <span>Администратор</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Дашборд -->
+        <section id="dashboard" class="section active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon blue">
+                        <i data-lucide="users"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="total-students">0</h3>
+                        <p>Всего студентов</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">
+                        <i data-lucide="users-2"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="active-groups">0</h3>
+                        <p>Активных групп</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange">
+                        <i data-lucide="calendar-check"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="attendance-rate">0%</h3>
+                        <p>Средняя посещаемость</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple">
+                        <i data-lucide="trophy"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="average-grade">0</h3>
+                        <p>Средний балл</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-content">
+                <div class="chart-container">
+                    <h3>Активность за неделю</h3>
+                    <canvas id="weeklyChart"></canvas>
+                </div>
+                <div class="activity-container">
+                    <h3>Последние действия</h3>
+                    <div id="recent-activities" class="activity-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Студенты -->
+        <section id="students" class="section">
+            <div class="section-controls">
+                <button class="btn btn-primary" id="add-student-btn">
+                    <i data-lucide="plus"></i>
+                    Добавить студента
+                </button>
+                <div class="search-box">
+                    <i data-lucide="search"></i>
+                    <input type="text" id="student-search" placeholder="Поиск студентов...">
+                </div>
+                <select id="student-filter" class="filter-select">
+                    <option value="all">Все студенты</option>
+                    <option value="active">Активные</option>
+                    <option value="archived">Архив</option>
+                </select>
+            </div>
+            <div id="students-grid" class="students-grid"></div>
+        </section>
+
+        <!-- Группы -->
+        <section id="groups" class="section">
+            <div class="section-controls">
+                <button class="btn btn-primary" id="add-group-btn">
+                    <i data-lucide="plus"></i>
+                    Создать группу
+                </button>
+            </div>
+            <div id="groups-grid" class="groups-grid"></div>
+        </section>
+
+        <!-- Журнал -->
+        <section id="journal" class="section">
+            <div class="journal-controls">
+                <select id="group-select" class="filter-select">
+                    <option value="">Выберите группу</option>
+                </select>
+                <div class="journal-navigation-controls">
+                    <div class="month-navigation">
+                        <button class="btn btn-secondary btn-small" id="prev-month-btn">
+                            <i data-lucide="chevron-left"></i>
+                        </button>
+                        <span id="current-month-display" class="month-display">Сентябрь 2025</span>
+                        <button class="btn btn-secondary btn-small" id="next-month-btn">
+                            <i data-lucide="chevron-right"></i>
+                        </button>
+                    </div>
+                    <div class="week-navigation" style="display: none;">
+                        <button class="btn btn-secondary btn-small" id="prev-week-btn">
+                            <i data-lucide="chevron-left"></i>
+                        </button>
+                        <span id="current-week-display" class="week-display">Неделя 1</span>
+                        <button class="btn btn-secondary btn-small" id="next-week-btn">
+                            <i data-lucide="chevron-right"></i>
+                        </button>
+                    </div>
+                    <button class="btn btn-secondary" id="toggle-view-btn">Месяц/Неделя</button>
+                </div>
+            </div>
+            <div class="journal-content">
+                <div class="journal-view-container" id="weekly-journal-view">
+                    <div class="chart-container">
+                        <h3>Средний балл студентов</h3>
+                        <canvas id="gradesChart"></canvas>
+                    </div>
+                    <div class="journal-table-container">
+                        <table id="journal-table" class="journal-table">
+                            <thead>
+                                <!-- Header will be dynamically generated by JavaScript -->
+                            </thead>
+                            <tbody id="journal-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="journal-view-container" id="monthly-summary-view" style="display: none;">
+                    <div class="monthly-summary-container">
+                        <h3>Ежемесячный сводный отчет</h3>
+                        <div id="monthly-summary-grid" class="monthly-summary-grid">
+                            <!-- Monthly summary content will be dynamically generated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+                                                
+        <!-- Отчеты -->
+        <section id="reports" class="section">
+            <div class="reports-grid">
+                <div class="report-card">
+                    <div class="report-icon">
+                        <i data-lucide="clipboard-list"></i>
+                    </div>
+                    <h3>Отчет по посещаемости</h3>
+                    <p>Детальная статистика посещений по группам и студентам</p>
+                    <button class="btn btn-secondary" data-report="attendance">Сгенерировать</button>
+                </div>
+                <div class="report-card">
+                    <div class="report-icon">
+                        <i data-lucide="award"></i>
+                    </div>
+                    <h3>Успеваемость студентов</h3>
+                    <p>Анализ оценок и академической успешности</p>
+                    <button class="btn btn-secondary" data-report="grades">Сгенерировать</button>
+                </div>
+                <div class="report-card">
+                    <div class="report-icon">
+                        <i data-lucide="activity"></i>
+                    </div>
+                    <h3>Активность групп</h3>
+                    <p>Обзор активности и вовлеченности групп</p>
+                    <button class="btn btn-secondary" data-report="activity">Сгенерировать</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Настройки -->
+        <section id="settings" class="section">
+            <div class="settings-content">
+                <div class="settings-group">
+                    <h3>Общие настройки</h3>
+                    <div class="form-group">
+                        <label for="institution-name">Название учебного заведения</label>
+                        <input type="text" id="institution-name" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="academic-year">Учебный год</label>
+                        <select id="academic-year" class="form-control">
+                            <option value="2024-2025">2024-2025</option>
+                            <option value="2023-2024">2023-2024</option>
+                            <option value="2025-2026">2025-2026</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <h3>Система оценок</h3>
+                    <div class="form-group">
+                        <label for="max-grade">Максимальный балл за занятие</label>
+                        <input type="number" id="max-grade" class="form-control" min="1" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="bonus-system">Система бонусов</label>
+                        <select id="bonus-system" class="form-control">
+                            <option value="enabled">Включена</option>
+                            <option value="disabled">Отключена</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="save-settings">Сохранить настройки</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Модальное окно для студентов -->
+    <div id="student-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="student-modal-title">Добавить студента</h2>
+                <button class="modal-close">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="student-form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="student-name">Имя *</label>
+                        <input type="text" id="student-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="student-surname">Фамилия *</label>
+                        <input type="text" id="student-surname" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="student-email">Email</label>
+                        <input type="email" id="student-email">
+                    </div>
+                    <div class="form-group">
+                        <label for="student-phone">Телефон</label>
+                        <input type="tel" id="student-phone">
+                    </div>
+                    <div class="form-group">
+                        <label for="student-group">Группа</label>
+                        <select id="student-group">
+                            <option value="">Выберите группу</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="student-status">Статус</label>
+                        <select id="student-status">
+                            <option value="active">Активный</option>
+                            <option value="archived">Архив</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно для групп -->
+    <div id="group-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="group-modal-title">Создать группу</h2>
+                <button class="modal-close">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="group-form">
+                <div class="form-group">
+                    <label for="group-name">Название группы *</label>
+                    <input type="text" id="group-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="group-description">Описание</label>
+                    <textarea id="group-description" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="group-color">Цвет группы</label>
+                    <input type="color" id="group-color" value="#2563eb">
+                </div>
+                <div class="form-group">
+                    <label>Расписание</label>
+                    <div class="schedule-grid">
+                        <div class="schedule-item">
+                            <input type="checkbox" id="monday">
+                            <label for="monday">Пн</label>
+                            <input type="time" id="monday-time" disabled>
+                        </div>
+                        <div class="schedule-item">
+                            <input type="checkbox" id="tuesday">
+                            <label for="tuesday">Вт</label>
+                            <input type="time" id="tuesday-time" disabled>
+                        </div>
+                        <div class="schedule-item">
+                            <input type="checkbox" id="wednesday">
+                            <label for="wednesday">Ср</label>
+                            <input type="time" id="wednesday-time" disabled>
+                        </div>
+                        <div class="schedule-item">
+                            <input type="checkbox" id="thursday">
+                            <label for="thursday">Чт</label>
+                            <input type="time" id="thursday-time" disabled>
+                        </div>
+                        <div class="schedule-item">
+                            <input type="checkbox" id="friday">
+                            <label for="friday">Пт</label>
+                            <input type="time" id="friday-time" disabled>
+                        </div>
+                        <div class="schedule-item">
+                            <input type="checkbox" id="saturday">
+                            <label for="saturday">Сб</label>
+                            <input type="time" id="saturday-time" disabled>
+                        </div>
+                        <div class="schedule-item">
+                            <input type="checkbox" id="sunday">
+                            <label for="sunday">Вс</label>
+                            <input type="time" id="sunday-time" disabled>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно отчетов -->
+    <div id="report-modal" class="modal">
+        <div class="modal-content report-modal-content">
+            <div class="modal-header">
+                <h2 id="report-modal-title">Отчет</h2>
+                <button class="modal-close">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div id="report-content" class="report-content"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary modal-cancel">Закрыть</button>
+                <button type="button" class="btn btn-primary" id="export-report">Экспорт PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для комментариев -->
+    <div id="comment-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="comment-modal-title">Добавить комментарий</h2>
+                <button class="modal-close">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="comment-form">
+                <div class="form-group">
+                    <label for="comment-text">Комментарий</label>
+                    <textarea id="comment-text" rows="5"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

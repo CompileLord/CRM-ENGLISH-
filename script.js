@@ -1,0 +1,1712 @@
+class EduCRM {
+    constructor() {
+        this.currentSection = 'dashboard';
+        this.currentStudentId = null;
+        this.currentGroupId = null;
+        this.currentJournalGroupId = null;
+        this.currentJournalMonth = new Date(); // Initialize with current date
+        this.currentJournalView = 'month'; // 'month' or 'week'
+        this.currentJournalWeek = 0; // Index of the current week in the month (0-indexed)
+        this.currentCommentContext = { groupId: null, date: null, studentId: null }; // New property for comment modal
+        this.students = [];
+        this.groups = [];
+        this.journal = {}; // Structure: { groupId: { 'YYYY-MM-DD': { studentId: { attendance: true, grade: 5, comment: '' } } } }
+        this.monthlyAssessments = {}; // Structure: { groupId: { 'YYYY-MM': { studentId: { examScore: 0, bonusPoints: 0, finalGrade: 0 } } } }
+        this.settings = {
+            institutionName: 'Учебный центр',
+            academicYear: '2024-2025',
+            maxGrade: 5,
+            bonusSystem: 'enabled'
+        };
+        
+        this.init();
+    }
+
+    async init() {
+        await this.initDB();
+        await this.loadData();
+        this.initEventListeners();
+        this.renderCurrentSection();
+        this.updateStats();
+        lucide.createIcons();
+    }
+
+    // IndexedDB functions
+    async initDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open('EduCRM', 2); // Increment database version
+            
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                this.db = request.result;
+                resolve();
+            };
+            
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                
+                // Create stores
+                if (!db.objectStoreNames.contains('students')) {
+                    const studentsStore = db.createObjectStore('students', { keyPath: 'id' });
+                    studentsStore.createIndex('status', 'status', { unique: false });
+                    studentsStore.createIndex('group', 'group', { unique: false });
+                }
+                
+                if (!db.objectStoreNames.contains('groups')) {
+                    db.createObjectStore('groups', { keyPath: 'id' });
+                }
+                
+                if (!db.objectStoreNames.contains('journal')) {
+                    db.createObjectStore('journal', { keyPath: 'id' });
+                }
+                
+                if (!db.objectStoreNames.contains('monthlyAssessments')) {
+                    db.createObjectStore('monthlyAssessments', { keyPath: 'id' });
+                }
+
+                if (!db.objectStoreNames.contains('settings')) {
+                    db.createObjectStore('settings', { keyPath: 'key' });
+                }
+                console.log('IndexedDB upgrade needed: All object stores checked/created.');
+            };
+        });
+    }
+
+    async saveToDB(storeName, data) {
+        const transaction = this.db.transaction([storeName], 'readwrite');
+        const store = transaction.objectStore(storeName);
+        return store.put(data);
+    }
+
+    async getFromDB(storeName, key = null) {
+        const transaction = this.db.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        
+        if (key) {
+            return new Promise((resolve) => {
+                const request = store.get(key);
+                request.onsuccess = () => resolve(request.result);
+            });
+        } else {
+            return new Promise((resolve) => {
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result);
+            });
+        }
+    }
+
+    async deleteFromDB(storeName, key) {
+        const transaction = this.db.transaction([storeName], 'readwrite');
+        const store = transaction.objectStore(storeName);
+        return store.delete(key);
+    }
+
+    // Data management
+    async loadData() {
+        // Load students
+        this.students = await this.getFromDB('students') || [];
+        
+        // Load groups
+        this.groups = await this.getFromDB('groups') || [];
+        
+        // Load journal
+        const journalEntries = await this.getFromDB('journal') || [];
+        this.journal = {};
+        journalEntries.forEach(entry => {
+            if (!this.journal[entry.groupId]) {
+                this.journal[entry.groupId] = {};
+            }
+            this.journal[entry.groupId][entry.date] = entry.data; // Store daily data directly
+        });
+
+        // Load monthly assessments
+        const monthlyAssessmentEntries = await this.getFromDB('monthlyAssessments') || [];
+        this.monthlyAssessments = {};
+        monthlyAssessmentEntries.forEach(entry => {
+            if (!this.monthlyAssessments[entry.groupId]) {
+                this.monthlyAssessments[entry.groupId] = {};
+            }
+            if (!this.monthlyAssessments[entry.groupId][entry.monthYear]) {
+                this.monthlyAssessments[entry.groupId][entry.monthYear] = {};
+            }
+            this.monthlyAssessments[entry.groupId][entry.monthYear][entry.studentId] = entry.data;
+        });
+        
+        // Load settings
+        const settingsData = await this.getFromDB('settings') || [];
+        settingsData.forEach(setting => {
+            this.settings[setting.key] = setting.value;
+        });
+        
+        // Load demo data if empty
+        if (this.students.length === 0) {
+            await this.loadDemoData();
+        }
+    }
+
+    async loadDemoData() {
+        // Demo groups
+        const demoGroups = [
+            {
+                id: '1',
+                name: 'Группа А-101',
+                description: 'Базовый курс программирования',
+                color: '#2563eb',
+                schedule: {
+                    monday: '09:00',
+                    wednesday: '09:00',
+                    friday: '09:00'
+                }
+            },
+            {
+                id: '2',
+                name: 'Группа Б-202',
+                description: 'Продвинутый курс веб-разработки',
+                color: '#10b981',
+                schedule: {
+                    tuesday: '14:00',
+                    thursday: '14:00'
+                }
+            }
+        ];
+
+        // Demo students
+        const demoStudents = [
+            {
+                id: '1',
+                name: 'Иван',
+                surname: 'Петров',
+                email: 'ivan@example.com',
+                phone: '+7 999 123-45-67',
+                group: '1',
+                status: 'active'
+            },
+            {
+                id: '2',
+                name: 'Мария',
+                surname: 'Сидорова',
+                email: 'maria@example.com',
+                phone: '+7 999 234-56-78',
+                group: '1',
+                status: 'active'
+            },
+            {
+                id: '3',
+                name: 'Алексей',
+                surname: 'Козлов',
+                email: 'alexey@example.com',
+                phone: '+7 999 345-67-89',
+                group: '2',
+                status: 'active'
+            }
+        ];
+
+        // Save demo data
+        for (const group of demoGroups) {
+            await this.saveToDB('groups', group);
+            this.groups.push(group);
+        }
+
+        for (const student of demoStudents) {
+            await this.saveToDB('students', student);
+            this.students.push(student);
+        }
+    }
+
+    // Event listeners
+    initEventListeners() {
+        // Navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const section = item.dataset.section;
+                this.switchSection(section);
+            });
+        });
+
+        // Students
+        document.getElementById('add-student-btn').addEventListener('click', () => this.openStudentModal());
+        document.getElementById('student-search').addEventListener('input', (e) => this.filterStudents(e.target.value));
+        document.getElementById('student-filter').addEventListener('change', (e) => this.filterStudentsByStatus(e.target.value));
+        document.getElementById('student-form').addEventListener('submit', (e) => this.saveStudent(e));
+
+        // Groups
+        document.getElementById('add-group-btn').addEventListener('click', () => this.openGroupModal());
+        document.getElementById('group-form').addEventListener('submit', (e) => this.saveGroup(e));
+
+        // Journal
+        document.getElementById('group-select').addEventListener('change', (e) => this.loadJournal(e.target.value, this.currentJournalMonth));
+        document.getElementById('prev-month-btn').addEventListener('click', () => this.prevMonth());
+        document.getElementById('next-month-btn').addEventListener('click', () => this.nextMonth());
+        document.getElementById('prev-week-btn').addEventListener('click', () => this.prevWeek());
+        document.getElementById('next-week-btn').addEventListener('click', () => this.nextWeek());
+        document.getElementById('toggle-view-btn').addEventListener('click', () => this.toggleJournalView());
+
+        // Settings
+        document.getElementById('save-settings').addEventListener('click', () => this.saveSettings());
+
+        // Comment modal
+        document.getElementById('comment-form').addEventListener('submit', (e) => this.saveComment(e));
+
+        // Modals
+        document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
+            btn.addEventListener('click', () => this.closeModal());
+        });
+
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) this.closeModal();
+            });
+        });
+
+        // Schedule checkboxes
+        ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].forEach(day => {
+            const checkbox = document.getElementById(day);
+            const timeInput = document.getElementById(`${day}-time`);
+            if (checkbox && timeInput) {
+                checkbox.addEventListener('change', () => {
+                    timeInput.disabled = !checkbox.checked;
+                    if (!checkbox.checked) timeInput.value = '';
+                });
+            }
+        });
+
+        // Reports
+        document.querySelectorAll('[data-report]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const reportType = e.currentTarget.dataset.report;
+                this.generateReport(reportType);
+            });
+        });
+
+        // Mobile menu toggle
+        this.addMobileMenuToggle();
+    }
+
+    addMobileMenuToggle() {
+        const header = document.querySelector('.header');
+        const menuToggle = document.createElement('button');
+        menuToggle.className = 'mobile-menu-toggle';
+        menuToggle.innerHTML = '<i data-lucide="menu"></i>';
+        menuToggle.style.display = 'none';
+        
+        header.insertBefore(menuToggle, header.firstChild);
+        
+        menuToggle.addEventListener('click', () => {
+            document.querySelector('.sidebar').classList.toggle('mobile-open');
+        });
+        
+        // Show/hide mobile menu toggle
+        const checkMobile = () => {
+            if (window.innerWidth <= 768) {
+                menuToggle.style.display = 'block';
+            } else {
+                menuToggle.style.display = 'none';
+                document.querySelector('.sidebar').classList.remove('mobile-open');
+            }
+        };
+        
+        window.addEventListener('resize', checkMobile);
+        checkMobile();
+    }
+
+    // Section switching
+    switchSection(sectionName) {
+        // Update navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.section === sectionName);
+        });
+
+        // Update sections
+        document.querySelectorAll('.section').forEach(section => {
+            section.classList.toggle('active', section.id === sectionName);
+        });
+
+        // Update header
+        const titles = {
+            dashboard: ['Дашборд', 'Обзор системы управления обучением'],
+            students: ['Студенты', 'Управление студентами'],
+            groups: ['Группы', 'Управление группами'],
+            journal: ['Журнал', 'Журнал посещаемости и оценок'],
+            reports: ['Отчеты', 'Генерация отчетов'],
+            settings: ['Настройки', 'Настройки системы']
+        };
+
+        const [title, subtitle] = titles[sectionName];
+        document.getElementById('page-title').textContent = title;
+        document.getElementById('page-subtitle').textContent = subtitle;
+
+        this.currentSection = sectionName;
+        this.renderCurrentSection();
+
+        // Close mobile menu
+        document.querySelector('.sidebar').classList.remove('mobile-open');
+    }
+
+    renderCurrentSection() {
+        switch (this.currentSection) {
+            case 'dashboard':
+                this.renderDashboard();
+                break;
+            case 'students':
+                this.renderStudents();
+                break;
+            case 'groups':
+                this.renderGroups();
+                break;
+            case 'journal':
+                this.renderJournal();
+                break;
+            case 'reports':
+                this.renderReports();
+                break;
+            case 'settings':
+                this.renderSettings();
+                break;
+        }
+    }
+
+    // Dashboard
+    renderDashboard() {
+        this.updateStats();
+        this.renderWeeklyChart();
+        this.renderRecentActivities();
+    }
+
+    updateStats() {
+        const totalStudents = this.students.filter(s => s.status === 'active').length;
+        const activeGroups = this.groups.length;
+        const attendanceRate = this.calculateAverageAttendance();
+        const averageGrade = this.calculateAverageGrade();
+
+        this.animateNumber('total-students', totalStudents);
+        this.animateNumber('active-groups', activeGroups);
+        this.animateNumber('attendance-rate', attendanceRate, '%');
+        this.animateNumber('average-grade', averageGrade.toFixed(1));
+    }
+
+    animateNumber(elementId, targetValue, suffix = '') {
+        const element = document.getElementById(elementId);
+        const currentValue = parseInt(element.textContent) || 0;
+        const increment = Math.ceil((targetValue - currentValue) / 30);
+        
+        let current = currentValue;
+        const timer = setInterval(() => {
+            current += increment;
+            if (current >= targetValue) {
+                current = targetValue;
+                clearInterval(timer);
+            }
+            element.textContent = current + suffix;
+        }, 50);
+    }
+
+    calculateAverageAttendance() {
+        let totalAttendance = 0;
+        let totalSessions = 0;
+
+        for (const groupId in this.journal) {
+            for (const dateKey in this.journal[groupId]) {
+                for (const studentId in this.journal[groupId][dateKey]) {
+                    const dayData = this.journal[groupId][dateKey][studentId];
+                    if (dayData.attendance !== undefined) {
+                        totalSessions++;
+                        if (dayData.attendance) totalAttendance++;
+                    }
+                }
+            }
+        }
+
+        return totalSessions > 0 ? Math.round((totalAttendance / totalSessions) * 100) : 85;
+    }
+
+    calculateAverageGrade() {
+        let totalGrades = 0;
+        let gradeCount = 0;
+
+        for (const groupId in this.journal) {
+            for (const dateKey in this.journal[groupId]) {
+                for (const studentId in this.journal[groupId][dateKey]) {
+                    const dayData = this.journal[groupId][dateKey][studentId];
+                    if (dayData.grade && dayData.grade > 0) {
+                        totalGrades += dayData.grade;
+                        gradeCount++;
+                    }
+                }
+            }
+        }
+
+        return gradeCount > 0 ? totalGrades / gradeCount : 4.2;
+    }
+
+    renderWeeklyChart() {
+        const ctx = document.getElementById('weeklyChart');
+        if (!ctx) return;
+
+        const data = {
+            labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+            datasets: [{
+                label: 'Активность',
+                data: [65, 59, 80, 81, 56, 55, 40],
+                borderColor: '#2563eb',
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                tension: 0.4
+            }]
+        };
+
+        // Destroy existing chart if it exists
+        if (this.weeklyChart) {
+            this.weeklyChart.destroy();
+        }
+
+        this.weeklyChart = new Chart(ctx, {
+            type: 'line',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, /* Added to prevent infinite scroll */
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    renderRecentActivities() {
+        const activities = [
+            {
+                icon: 'user-plus',
+                iconClass: 'blue',
+                text: 'Добавлен новый студент Иван Петров',
+                time: '2 часа назад'
+            },
+            {
+                icon: 'clipboard-check',
+                iconClass: 'green',
+                text: 'Обновлен журнал для группы А-101',
+                time: '4 часа назад'
+            },
+            {
+                icon: 'users',
+                iconClass: 'orange',
+                text: 'Создана новая группа Б-202',
+                time: '1 день назад'
+            },
+            {
+                icon: 'award',
+                iconClass: 'purple',
+                text: 'Выставлены оценки за контрольную работу',
+                time: '2 дня назад'
+            },
+            {
+                icon: 'calendar',
+                iconClass: 'blue',
+                text: 'Обновлено расписание занятий',
+                time: '3 дня назад'
+            }
+        ];
+
+        const container = document.getElementById('recent-activities');
+        container.innerHTML = activities.map(activity => `
+            <div class="activity-item">
+                <div class="activity-icon ${activity.iconClass}">
+                    <i data-lucide="${activity.icon}"></i>
+                </div>
+                <div class="activity-content">
+                    <p>${activity.text}</p>
+                    <span>${activity.time}</span>
+                </div>
+            </div>
+        `).join('');
+
+        lucide.createIcons();
+    }
+
+    // Students
+    renderStudents() {
+        this.populateGroupSelect();
+        this.displayStudents(this.students);
+    }
+
+    populateGroupSelect() {
+        const select = document.getElementById('student-group');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">Выберите группу</option>' +
+            this.groups.map(group => `<option value="${group.id}">${group.name}</option>`).join('');
+    }
+
+    displayStudents(students) {
+        const grid = document.getElementById('students-grid');
+        if (!grid) return;
+
+        grid.innerHTML = students.map(student => {
+            const group = this.groups.find(g => g.id === student.group);
+            const initials = `${student.name[0]}${student.surname[0]}`.toUpperCase();
+            
+            return `
+                <div class="student-card animate-fade-in">
+                    <div class="student-header">
+                        <div class="student-avatar">${initials}</div>
+                        <div class="student-actions">
+                            <button class="action-btn edit" onclick="app.editStudent('${student.id}')">
+                                <i data-lucide="edit"></i>
+                            </button>
+                            <button class="action-btn archive" onclick="app.toggleStudentStatus('${student.id}')">
+                                <i data-lucide="archive"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="student-name">${student.name} ${student.surname}</div>
+                    <div class="student-group">${group ? group.name : 'Без группы'}</div>
+                    <div class="student-contact">
+                        ${student.email ? `
+                            <div class="contact-item">
+                                <i data-lucide="mail"></i>
+                                <span>${student.email}</span>
+                            </div>
+                        ` : ''}
+                        ${student.phone ? `
+                            <div class="contact-item">
+                                <i data-lucide="phone"></i>
+                                <span>${student.phone}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="student-status status-${student.status}">
+                        ${student.status === 'active' ? 'Активный' : 'Архив'}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        lucide.createIcons();
+    }
+
+    filterStudents(searchTerm) {
+        const filtered = this.students.filter(student => 
+            student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            student.surname.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (student.email && student.email.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+        this.displayStudents(filtered);
+    }
+
+    filterStudentsByStatus(status) {
+        const filtered = status === 'all' ? this.students : this.students.filter(s => s.status === status);
+        this.displayStudents(filtered);
+    }
+
+    openStudentModal(studentId = null) {
+        this.currentStudentId = studentId;
+        const modal = document.getElementById('student-modal');
+        const title = document.getElementById('student-modal-title');
+        const form = document.getElementById('student-form');
+
+        if (studentId) {
+            const student = this.students.find(s => s.id === studentId);
+            title.textContent = 'Редактировать студента';
+            document.getElementById('student-name').value = student.name;
+            document.getElementById('student-surname').value = student.surname;
+            document.getElementById('student-email').value = student.email || '';
+            document.getElementById('student-phone').value = student.phone || '';
+            document.getElementById('student-group').value = student.group || '';
+            document.getElementById('student-status').value = student.status;
+        } else {
+            title.textContent = 'Добавить студента';
+            form.reset();
+        }
+
+        this.showModal(modal);
+    }
+
+    async saveStudent(e) {
+        e.preventDefault();
+        
+        const studentData = {
+            id: this.currentStudentId || Date.now().toString(),
+            name: document.getElementById('student-name').value,
+            surname: document.getElementById('student-surname').value,
+            email: document.getElementById('student-email').value,
+            phone: document.getElementById('student-phone').value,
+            group: document.getElementById('student-group').value,
+            status: document.getElementById('student-status').value
+        };
+
+        if (this.currentStudentId) {
+            const index = this.students.findIndex(s => s.id === this.currentStudentId);
+            this.students[index] = studentData;
+        } else {
+            this.students.push(studentData);
+        }
+
+        await this.saveToDB('students', studentData);
+        this.renderStudents();
+        this.updateStats();
+        this.closeModal();
+        this.currentStudentId = null;
+    }
+
+    editStudent(id) {
+        this.openStudentModal(id);
+    }
+
+    async toggleStudentStatus(id) {
+        const student = this.students.find(s => s.id === id);
+        student.status = student.status === 'active' ? 'archived' : 'active';
+        
+        await this.saveToDB('students', student);
+        this.renderStudents();
+        this.updateStats();
+    }
+
+    // Groups
+    renderGroups() {
+        this.displayGroups();
+        this.populateJournalGroupSelect();
+    }
+
+    displayGroups() {
+        const grid = document.getElementById('groups-grid');
+        if (!grid) return;
+
+        grid.innerHTML = this.groups.map(group => {
+            const studentsCount = this.students.filter(s => s.group === group.id && s.status === 'active').length;
+            const scheduleText = this.formatSchedule(group.schedule);
+            
+            return `
+                <div class="group-card animate-fade-in">
+                    <div class="group-header">
+                        <div class="group-info">
+                            <div class="group-color" style="background: ${group.color}"></div>
+                            <div class="group-details">
+                                <h3>${group.name}</h3>
+                                <div class="group-schedule">${scheduleText}</div>
+                            </div>
+                        </div>
+                        <button class="action-btn edit" onclick="app.editGroup('${group.id}')">
+                            <i data-lucide="edit"></i>
+                        </button>
+                    </div>
+                    <div class="group-stats">
+                        <div class="stat-item">
+                            <div class="value">${studentsCount}</div>
+                            <div class="label">Студентов</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="value">92%</div>
+                            <div class="label">Посещаемость</div>
+                        </div>
+                    </div>
+                    <div class="group-actions">
+                        <button class="btn btn-secondary btn-small" onclick="app.openJournalForGroup('${group.id}')">
+                            Журнал
+                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="app.showGroupStudents('${group.id}')">
+                            Студенты
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        lucide.createIcons();
+    }
+
+    formatSchedule(schedule) {
+        const days = {
+            monday: 'Пн',
+            tuesday: 'Вт',
+            wednesday: 'Ср',
+            thursday: 'Чт',
+            friday: 'Пт',
+            saturday: 'Сб',
+            sunday: 'Вс'
+        };
+
+        const activeDays = Object.keys(schedule).filter(day => schedule[day]);
+        return activeDays.map(day => `${days[day]} ${schedule[day]}`).join(', ') || 'Расписание не задано';
+    }
+
+    openGroupModal(groupId = null) {
+        this.currentGroupId = groupId;
+        const modal = document.getElementById('group-modal');
+        const title = document.getElementById('group-modal-title');
+        const form = document.getElementById('group-form');
+
+        if (groupId) {
+            const group = this.groups.find(g => g.id === groupId);
+            title.textContent = 'Редактировать группу';
+            document.getElementById('group-name').value = group.name;
+            document.getElementById('group-description').value = group.description || '';
+            document.getElementById('group-color').value = group.color;
+            
+            // Set schedule
+            Object.keys(group.schedule || {}).forEach(day => {
+                const checkbox = document.getElementById(day);
+                const timeInput = document.getElementById(`${day}-time`);
+                if (checkbox && timeInput) {
+                    checkbox.checked = !!group.schedule[day];
+                    timeInput.disabled = !checkbox.checked;
+                    timeInput.value = group.schedule[day] || '';
+                }
+            });
+        } else {
+            title.textContent = 'Создать группу';
+            form.reset();
+            document.getElementById('group-color').value = '#2563eb';
+            
+            // Reset schedule
+            ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].forEach(day => {
+                const checkbox = document.getElementById(day);
+                const timeInput = document.getElementById(`${day}-time`);
+                if (checkbox && timeInput) {
+                    checkbox.checked = false;
+                    timeInput.disabled = true;
+                    timeInput.value = '';
+                }
+            });
+        }
+
+        this.showModal(modal);
+    }
+
+    async saveGroup(e) {
+        e.preventDefault();
+        
+        const schedule = {};
+        ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].forEach(day => {
+            const checkbox = document.getElementById(day);
+            const timeInput = document.getElementById(`${day}-time`);
+            if (checkbox && checkbox.checked && timeInput && timeInput.value) {
+                schedule[day] = timeInput.value;
+            }
+        });
+
+        const groupData = {
+            id: this.currentGroupId || Date.now().toString(),
+            name: document.getElementById('group-name').value,
+            description: document.getElementById('group-description').value,
+            color: document.getElementById('group-color').value,
+            schedule: schedule
+        };
+
+        if (this.currentGroupId) {
+            const index = this.groups.findIndex(g => g.id === this.currentGroupId);
+            this.groups[index] = groupData;
+        } else {
+            this.groups.push(groupData);
+        }
+
+        await this.saveToDB('groups', groupData);
+        this.renderGroups();
+        this.updateStats();
+        this.closeModal();
+        this.currentGroupId = null;
+    }
+
+    editGroup(id) {
+        this.openGroupModal(id);
+    }
+
+    openJournalForGroup(groupId) {
+        this.switchSection('journal');
+        setTimeout(() => {
+            document.getElementById('group-select').value = groupId;
+            this.loadJournal(groupId, new Date()); // Load for current month
+        }, 100);
+    }
+
+    generateMonthlyJournal(group, month) {
+        const year = month.getFullYear();
+        const monthIndex = month.getMonth();
+        const firstDayOfMonth = new Date(year, monthIndex, 1);
+        const lastDayOfMonth = new Date(year, monthIndex + 1, 0);
+        
+        const weeks = [];
+        let currentWeek = [];
+        
+        // Fill leading empty days for the first week
+        const firstDayOfWeek = firstDayOfMonth.getDay() === 0 ? 6 : firstDayOfMonth.getDay() - 1; // Monday is 0, Sunday is 6
+        for (let i = 0; i < firstDayOfWeek; i++) {
+            currentWeek.push(null); // Use null for padding
+        }
+
+        // Fill days of the month
+        for (let day = 1; day <= lastDayOfMonth.getDate(); day++) {
+            const currentDate = new Date(year, monthIndex, day);
+            const dayOfWeek = currentDate.getDay() === 0 ? 6 : currentDate.getDay() - 1; // 0 for Monday, 6 for Sunday
+            const dayName = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'][dayOfWeek];
+            
+            const hasLesson = group.schedule && group.schedule[dayName];
+
+            currentWeek.push({
+                date: currentDate,
+                hasLesson: hasLesson,
+                time: hasLesson ? group.schedule[dayName] : null
+            });
+
+            if (currentWeek.length === 7) {
+                weeks.push(currentWeek);
+                currentWeek = [];
+            }
+        }
+
+        // Fill trailing empty days for the last week
+        while (currentWeek.length < 7) {
+            currentWeek.push(null);
+        }
+        if (currentWeek.length > 0) {
+            weeks.push(currentWeek);
+        }
+
+        return weeks;
+    }
+
+    showGroupStudents(groupId) {
+        this.switchSection('students');
+        setTimeout(() => {
+            document.getElementById('student-filter').value = 'active';
+            const groupStudents = this.students.filter(s => s.group === groupId && s.status === 'active');
+            this.displayStudents(groupStudents);
+        }, 100);
+    }
+
+    // Journal
+    renderJournal() {
+        this.populateJournalGroupSelect();
+        this.updateMonthDisplay();
+        this.updateWeekDisplay();
+        // If a group is already selected, load the journal for it
+        if (this.currentJournalGroupId) {
+            this.loadJournal(this.currentJournalGroupId, this.currentJournalMonth);
+        }
+    }
+
+    updateMonthDisplay() {
+        const display = document.getElementById('current-month-display');
+        if (display) {
+            display.textContent = this.currentJournalMonth.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+        }
+    }
+
+    updateWeekDisplay() {
+        const display = document.getElementById('current-week-display');
+        if (display) {
+            display.textContent = `Неделя ${this.currentJournalWeek + 1}`;
+        }
+    }
+
+    prevMonth() {
+        this.currentJournalMonth.setMonth(this.currentJournalMonth.getMonth() - 1);
+        this.updateMonthDisplay();
+        if (this.currentJournalGroupId) {
+            this.loadJournal(this.currentJournalGroupId, this.currentJournalMonth);
+        }
+    }
+
+    nextMonth() {
+        this.currentJournalMonth.setMonth(this.currentJournalMonth.getMonth() + 1);
+        this.updateMonthDisplay();
+        if (this.currentJournalGroupId) {
+            this.loadJournal(this.currentJournalGroupId, this.currentJournalMonth);
+        }
+    }
+
+    prevWeek() {
+        if (this.currentJournalWeek > 0) {
+            this.currentJournalWeek--;
+            this.updateWeekDisplay();
+            this.loadJournal(this.currentJournalGroupId, this.currentJournalMonth);
+        }
+    }
+
+    nextWeek() {
+        const group = this.groups.find(g => g.id === this.currentJournalGroupId);
+        if (group) {
+            const weeksInMonth = this.generateMonthlyJournal(group, this.currentJournalMonth).length;
+            if (this.currentJournalWeek < weeksInMonth - 1) {
+                this.currentJournalWeek++;
+                this.updateWeekDisplay();
+                this.loadJournal(this.currentJournalGroupId, this.currentJournalMonth);
+            }
+        }
+    }
+
+    populateJournalGroupSelect() {
+        const select = document.getElementById('group-select');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">Выберите группу</option>' +
+            this.groups.map(group => `<option value="${group.id}">${group.name}</option>`).join('');
+    }
+
+    loadJournal(groupId, month = new Date()) {
+        if (!groupId) return;
+
+        this.currentJournalGroupId = groupId;
+        this.currentJournalMonth = month;
+
+        const groupStudents = this.students.filter(s => s.group === groupId && s.status === 'active');
+        
+        if (this.currentJournalView === 'week') {
+            this.renderJournalTable(groupStudents, month);
+        } else {
+            this.renderMonthlySummary(groupStudents, groupId, month);
+        }
+        
+        this.renderGradesChart(groupStudents, groupId, month);
+    }
+
+    renderJournalTable(students, month) {
+        const tbody = document.getElementById('journal-tbody');
+        if (!tbody) return;
+
+        const group = this.groups.find(g => g.id === this.currentJournalGroupId);
+        if (!group || !group.schedule) {
+            tbody.innerHTML = '<tr><td colspan="10">Расписание для этой группы не задано.</td></tr>';
+            return;
+        }
+
+        const monthlyWeeks = this.generateMonthlyJournal(group, month);
+        const currentWeekData = monthlyWeeks[this.currentJournalWeek];
+        
+        if (!currentWeekData) {
+            tbody.innerHTML = '<tr><td colspan="10">Данные для этой недели отсутствуют.</td></tr>';
+            return;
+        }
+
+        const lessonDaysInWeek = currentWeekData.filter(day => day && day.hasLesson);
+        const daysInWeekCount = lessonDaysInWeek.length;
+
+        // Update table header for the week
+        const journalTable = document.getElementById('journal-table');
+        const thead = journalTable.querySelector('thead');
+        thead.innerHTML = `
+            <tr>
+                <th rowspan="2">Студент</th>
+                <th colspan="${daysInWeekCount * 3}">Неделя ${this.currentJournalWeek + 1} (${month.toLocaleString('ru-RU', { month: 'long', year: 'numeric' })})</th>
+                <th rowspan="2">Бонусы</th>
+                <th rowspan="2">Итог</th>
+            </tr>
+            <tr id="journal-dates-row"></tr>
+        `;
+
+        const datesRow = document.getElementById('journal-dates-row');
+        const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+        lessonDaysInWeek.forEach(day => {
+            datesRow.innerHTML += `
+                <th colspan="3">${dayNames[day.date.getDay() === 0 ? 6 : day.date.getDay() - 1]}<br>${day.date.getDate()}</th>
+            `;
+        });
+        
+        tbody.innerHTML = students.map(student => {
+            const monthYear = month.toISOString().substring(0, 7);
+            const monthlyAssessment = this.monthlyAssessments[this.currentJournalGroupId]?.[monthYear]?.[student.id] || { examScore: 0, bonusPoints: 0, finalGrade: 0 };
+
+            let totalGradesForMonth = 0;
+            
+            const groupJournal = this.journal[this.currentJournalGroupId] || {};
+            for (const dateKey in groupJournal) {
+                if (dateKey.startsWith(monthYear) && groupJournal[dateKey][student.id] && groupJournal[dateKey][student.id].grade) {
+                    totalGradesForMonth += Number(groupJournal[dateKey][student.id].grade);
+                }
+            }
+
+            const daysCells = lessonDaysInWeek.map(day => {
+                const dateKey = day.date.toISOString().split('T')[0];
+                const studentDayData = (this.journal[this.currentJournalGroupId]?.[dateKey]?.[student.id]) || {};
+                const attendance = studentDayData.attendance || false;
+                const grade = Number(studentDayData.grade) || 0; // Ensure grade is a number
+                const comment = studentDayData.comment || '';
+                
+                return `
+                    <td>
+                        <input type="checkbox" ${attendance ? 'checked' : ''}
+                               onchange="app.updateAttendance('${this.currentJournalGroupId}', '${dateKey}', '${student.id}', this.checked)">
+                    </td>
+                    <td>
+                        <input type="number" min="0" max="${this.settings.maxGrade}" value="${grade || ''}"
+                               onchange="app.updateGrade('${this.currentJournalGroupId}', '${dateKey}', '${student.id}', this.value)">
+                    </td>
+                    <td>
+                        <button class="action-btn small ${comment ? 'has-comment' : ''}" onclick="app.openCommentModal('${this.currentJournalGroupId}', '${dateKey}', '${student.id}')">
+                            <i data-lucide="message-square"></i>
+                        </button>
+                    </td>
+                `;
+            }).join('');
+
+            const totalSum = totalGradesForMonth + monthlyAssessment.bonusPoints; // Removed examScore from weekly total
+
+            return `
+                <tr>
+                    <td class="student-name">${student.name} ${student.surname}</td>
+                    ${daysCells}
+                    <td>
+                        <input type="number" min="0" max="10" value="${monthlyAssessment.bonusPoints || ''}"
+                               onchange="app.updateBonus('${this.currentJournalGroupId}', '${student.id}', this.value)">
+                    </td>
+                    <td class="total-cell" id="total-${student.id}">${totalSum}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    async updateAttendance(groupId, date, studentId, attended) {
+        if (!this.journal[groupId]) this.journal[groupId] = {};
+        if (!this.journal[groupId][date]) this.journal[groupId][date] = {};
+        if (!this.journal[groupId][date][studentId]) this.journal[groupId][date][studentId] = {};
+        
+        this.journal[groupId][date][studentId].attendance = attended;
+        await this.saveToDB('journal', { id: `${groupId}-${date}`, groupId, date, data: this.journal[groupId][date] });
+        
+        this.updateStudentTotal(studentId);
+        this.updateStats();
+    }
+
+    async updateGrade(groupId, date, studentId, grade) {
+        if (!this.journal[groupId]) this.journal[groupId] = {};
+        if (!this.journal[groupId][date]) this.journal[groupId][date] = {};
+        if (!this.journal[groupId][date][studentId]) this.journal[groupId][date][studentId] = {};
+        
+        this.journal[groupId][date][studentId].grade = parseInt(grade) || 0;
+        await this.saveToDB('journal', { id: `${groupId}-${date}`, groupId, date, data: this.journal[groupId][date] });
+        
+        this.updateStudentTotal(studentId);
+        this.updateStats();
+    }
+
+    openCommentModal(groupId, date, studentId) {
+        this.currentCommentContext = { groupId, date, studentId };
+        const modal = document.getElementById('comment-modal');
+        const commentTextarea = document.getElementById('comment-text');
+        
+        const studentDayData = (this.journal[groupId]?.[date]?.[studentId]) || {};
+        commentTextarea.value = studentDayData.comment || '';
+        
+        this.showModal(modal);
+        lucide.createIcons(); // Re-render lucide icons for the modal
+    }
+
+    async saveComment(e) {
+        e.preventDefault();
+        const { groupId, date, studentId } = this.currentCommentContext;
+        const comment = document.getElementById('comment-text').value;
+
+        if (!this.journal[groupId]) this.journal[groupId] = {};
+        if (!this.journal[groupId][date]) this.journal[groupId][date] = {};
+        if (!this.journal[groupId][date][studentId]) this.journal[groupId][date][studentId] = {};
+        
+        this.journal[groupId][date][studentId].comment = comment;
+        await this.saveToDB('journal', { id: `${groupId}-${date}`, groupId, date, data: this.journal[groupId][date] });
+        
+        this.closeModal();
+        this.renderJournalTable(
+            this.students.filter(s => s.group === groupId && s.status === 'active'),
+            this.currentJournalMonth
+        ); // Re-render table to update comment icon state
+    }
+
+    async updateBonus(groupId, studentId, bonus) {
+        const monthYear = this.currentJournalMonth.toISOString().substring(0, 7); // YYYY-MM
+        if (!this.monthlyAssessments[groupId]) this.monthlyAssessments[groupId] = {};
+        if (!this.monthlyAssessments[groupId][monthYear]) this.monthlyAssessments[groupId][monthYear] = {};
+        if (!this.monthlyAssessments[groupId][monthYear][studentId]) {
+            this.monthlyAssessments[groupId][monthYear][studentId] = { examScore: 0, bonusPoints: 0, finalGrade: 0 };
+        }
+        
+        this.monthlyAssessments[groupId][monthYear][studentId].bonusPoints = parseInt(bonus) || 0;
+        await this.saveToDB('monthlyAssessments', {
+            id: `${groupId}-${monthYear}-${studentId}`, // Unique ID for monthly assessment per student
+            groupId,
+            monthYear,
+            studentId,
+            data: this.monthlyAssessments[groupId][monthYear][studentId]
+        });
+        
+        this.updateStudentTotal(studentId);
+    }
+
+    async updateExamScore(groupId, studentId, examScore) {
+        const monthYear = this.currentJournalMonth.toISOString().substring(0, 7); // YYYY-MM
+        if (!this.monthlyAssessments[groupId]) this.monthlyAssessments[groupId] = {};
+        if (!this.monthlyAssessments[groupId][monthYear]) this.monthlyAssessments[groupId][monthYear] = {};
+        if (!this.monthlyAssessments[groupId][monthYear][studentId]) {
+            this.monthlyAssessments[groupId][monthYear][studentId] = { examScore: 0, bonusPoints: 0, finalGrade: 0 };
+        }
+        
+        this.monthlyAssessments[groupId][monthYear][studentId].examScore = parseInt(examScore) || 0;
+        await this.saveToDB('monthlyAssessments', {
+            id: `${groupId}-${monthYear}-${studentId}`, // Unique ID for monthly assessment per student
+            groupId,
+            monthYear,
+            studentId,
+            data: this.monthlyAssessments[groupId][monthYear][studentId]
+        });
+        
+        this.updateStudentTotal(studentId);
+    }
+
+    updateStudentTotal(studentId) {
+        const groupId = this.currentJournalGroupId;
+        if (!groupId) return;
+
+        const groupJournal = this.journal[groupId] || {};
+        const monthYear = this.currentJournalMonth.toISOString().substring(0, 7);
+        const monthlyAssessment = this.monthlyAssessments[groupId]?.[monthYear]?.[studentId] || { examScore: 0, bonusPoints: 0, finalGrade: 0 };
+        
+        let totalGrades = 0;
+        
+        // Iterate through all dates in the current month for the group
+        for (const dateKey in groupJournal) {
+            // Ensure the date belongs to the current month
+            if (dateKey.startsWith(monthYear) && groupJournal[dateKey][studentId] && groupJournal[dateKey][studentId].grade) {
+                totalGrades += Number(groupJournal[dateKey][studentId].grade);
+            }
+        }
+        
+        const bonus = monthlyAssessment.bonusPoints || 0;
+        const total = totalGrades + bonus; // Removed examScore from weekly total
+        
+        const totalCell = document.getElementById(`total-${studentId}`);
+        if (totalCell) totalCell.textContent = total;
+
+        // Update the monthly summary if it's currently displayed
+        if (this.currentJournalView === 'month') {
+            const groupStudents = this.students.filter(s => s.group === groupId && s.status === 'active');
+            this.renderMonthlySummary(groupStudents, groupId, this.currentJournalMonth);
+        }
+    }
+
+    renderGradesChart(students, groupId, month) {
+        const ctx = document.getElementById('gradesChart');
+        if (!ctx) return;
+
+        const group = this.groups.find(g => g.id === groupId);
+        if (!group || !group.schedule) {
+            ctx.innerHTML = '<p>Расписание для этой группы не задано, невозможно построить график.</p>';
+            if (this.gradesChart) {
+                this.gradesChart.destroy();
+                this.gradesChart = null;
+            }
+            return;
+        }
+
+        const monthlyWeeks = this.generateMonthlyJournal(group, month);
+        const labels = monthlyWeeks.map((_, index) => `Неделя ${index + 1}`);
+
+        const datasets = students.map((student, studentIndex) => {
+            const studentWeeklyScores = monthlyWeeks.map(weekData => {
+                let weekTotalGrade = 0;
+                let weekGradeCount = 0;
+                weekData.forEach(day => {
+                    if (day && day.hasLesson) {
+                        const dateKey = day.date.toISOString().split('T')[0];
+                        const studentDayData = (this.journal[groupId]?.[dateKey]?.[student.id]) || {};
+                        if (studentDayData.grade && studentDayData.grade > 0) {
+                            weekTotalGrade += Number(studentDayData.grade);
+                            weekGradeCount++;
+                        }
+                    }
+                });
+                return weekGradeCount > 0 ? weekTotalGrade / weekGradeCount : 0; // Average grade for the week
+            });
+
+            // Generate a distinct color for each student
+            const colors = [
+                '#2563eb', '#10b981', '#f97316', '#8b5cf6', '#ef4444', '#eab308', '#06b6d4', '#6b7280',
+                '#be185d', '#4ade80', '#facc15', '#a78bfa', '#f87171', '#fbbf24', '#22d3ee', '#9ca3af'
+            ];
+            const studentColor = colors[studentIndex % colors.length];
+
+            return {
+                label: `${student.name} ${student.surname}`,
+                data: studentWeeklyScores,
+                borderColor: studentColor,
+                backgroundColor: studentColor,
+                fill: false,
+                tension: 0.4,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                pointBackgroundColor: studentColor,
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
+            };
+        });
+
+        // Destroy existing chart if it exists
+        if (this.gradesChart) {
+            this.gradesChart.destroy();
+        }
+
+        this.gradesChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 20,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            title: function(context) {
+                                return context[0].label;
+                            },
+                            label: function(context) {
+                                const studentName = context.dataset.label;
+                                const score = context.parsed.y;
+                                return `${studentName}: ${score.toFixed(1)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Недели',
+                            color: '#333',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: this.settings.maxGrade,
+                        title: {
+                            display: true,
+                            text: 'Средний балл',
+                            color: '#333',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        },
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    renderMonthlySummary(students, groupId, month) {
+        const grid = document.getElementById('monthly-summary-grid');
+        if (!grid) return;
+
+        const monthYear = month.toISOString().substring(0, 7); // YYYY-MM
+
+        grid.innerHTML = students.map(student => {
+            const monthlyAssessment = this.monthlyAssessments[groupId]?.[monthYear]?.[student.id] || { examScore: 0, bonusPoints: 0, finalGrade: 0 };
+            
+            let totalGradesForMonth = 0;
+            const groupJournal = this.journal[groupId] || {};
+            for (const dateKey in groupJournal) {
+                if (dateKey.startsWith(monthYear) && groupJournal[dateKey][student.id] && groupJournal[dateKey][student.id].grade) {
+                    totalGradesForMonth += Number(groupJournal[dateKey][student.id].grade);
+                }
+            }
+
+            const totalSum = totalGradesForMonth + monthlyAssessment.bonusPoints + monthlyAssessment.examScore;
+
+            return `
+                <div class="monthly-summary-card animate-fade-in">
+                    <h4>${student.name} ${student.surname}</h4>
+                    <div class="monthly-summary-item">
+                        <span class="label">Баллы за занятия:</span>
+                        <span class="value">${totalGradesForMonth}</span>
+                    </div>
+                    <div class="monthly-summary-item">
+                        <span class="label">Баллы за экзамен:</span>
+                        <input type="number" min="0" max="100" value="${monthlyAssessment.examScore || ''}"
+                               onchange="app.updateExamScore('${groupId}', '${student.id}', this.value)">
+                    </div>
+                    <div class="monthly-summary-item">
+                        <span class="label">Бонусные баллы:</span>
+                        <input type="number" min="0" max="10" value="${monthlyAssessment.bonusPoints || ''}"
+                               onchange="app.updateBonus('${groupId}', '${student.id}', this.value)">
+                    </div>
+                    <div class="total-grade">Итог: ${totalSum}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    toggleJournalView() {
+        this.currentJournalView = this.currentJournalView === 'month' ? 'week' : 'month';
+        this.currentJournalWeek = 0; // Reset to the first week when toggling
+        this.updateJournalViewUI();
+        if (this.currentJournalGroupId) {
+            this.loadJournal(this.currentJournalGroupId, this.currentJournalMonth);
+        }
+    }
+
+    updateJournalViewUI() {
+        const weeklyView = document.getElementById('weekly-journal-view');
+        const monthlyView = document.getElementById('monthly-summary-view');
+        const monthNav = document.querySelector('.month-navigation');
+        const weekNav = document.querySelector('.week-navigation');
+        const toggleBtn = document.getElementById('toggle-view-btn');
+
+        if (this.currentJournalView === 'week') {
+            weeklyView.style.display = 'grid';
+            monthlyView.style.display = 'none';
+            monthNav.style.display = 'none';
+            weekNav.style.display = 'flex';
+            toggleBtn.textContent = 'Месяц';
+        } else {
+            weeklyView.style.display = 'none';
+            monthlyView.style.display = 'block';
+            monthNav.style.display = 'flex';
+            weekNav.style.display = 'none';
+            toggleBtn.textContent = 'Неделя';
+        }
+    }
+
+    // Reports
+    renderReports() {
+        // Reports are rendered in HTML, just need event listeners
+    }
+
+    generateReport(type) {
+        let reportContent = '';
+        let reportTitle = '';
+
+        switch (type) {
+            case 'attendance':
+                reportTitle = 'Отчет по посещаемости';
+                reportContent = this.generateAttendanceReport();
+                break;
+            case 'grades':
+                reportTitle = 'Успеваемость студентов';
+                reportContent = this.generateGradesReport();
+                break;
+            case 'activity':
+                reportTitle = 'Активность групп';
+                reportContent = this.generateActivityReport();
+                break;
+        }
+
+        this.showReportModal(reportTitle, reportContent);
+    }
+
+    generateAttendanceReport() {
+        const attendanceData = this.students.filter(s => s.status === 'active').map(student => {
+            const studentJournal = this.journal[student.id] || {};
+            let totalSessions = 0;
+            let attendedSessions = 0;
+
+            ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].forEach(day => {
+                const dayData = studentJournal[day];
+                if (dayData && dayData.attendance !== undefined) {
+                    totalSessions++;
+                    if (dayData.attendance) attendedSessions++;
+                }
+            });
+
+            const attendanceRate = totalSessions > 0 ? Math.round((attendedSessions / totalSessions) * 100) : 0;
+            const group = this.groups.find(g => g.id === student.group);
+
+            return {
+                student: `${student.name} ${student.surname}`,
+                group: group ? group.name : 'Без группы',
+                attended: attendedSessions,
+                total: totalSessions,
+                percentage: attendanceRate
+            };
+        });
+
+        let html = `
+            <div class="report-section">
+                <h3>Посещаемость по студентам</h3>
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Студент</th>
+                            <th>Группа</th>
+                            <th>Посещено</th>
+                            <th>Всего занятий</th>
+                            <th>Процент</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${attendanceData.map(item => `
+                            <tr>
+                                <td>${item.student}</td>
+                                <td>${item.group}</td>
+                                <td>${item.attended}</td>
+                                <td>${item.total}</td>
+                                <td>${item.percentage}%</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                <div class="report-summary">
+                    <div class="summary-item">
+                        <div class="value">${Math.round(attendanceData.reduce((sum, item) => sum + item.percentage, 0) / attendanceData.length)}%</div>
+                        <div class="label">Средняя посещаемость</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="value">${attendanceData.filter(item => item.percentage >= 80).length}</div>
+                        <div class="label">Студентов с хорошей посещаемостью</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return html;
+    }
+
+    generateGradesReport() {
+        const gradesData = this.students.filter(s => s.status === 'active').map(student => {
+            const studentJournal = this.journal[student.id] || {};
+            let totalGrades = 0;
+            let gradeCount = 0;
+            let maxGrade = 0;
+            let minGrade = this.settings.maxGrade;
+
+            ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].forEach(day => {
+                const dayData = studentJournal[day] || {};
+                if (dayData.grade && dayData.grade > 0) {
+                    totalGrades += dayData.grade;
+                    gradeCount++;
+                    maxGrade = Math.max(maxGrade, dayData.grade);
+                    minGrade = Math.min(minGrade, dayData.grade);
+                }
+            });
+
+            const average = gradeCount > 0 ? (totalGrades / gradeCount).toFixed(2) : 0;
+            const group = this.groups.find(g => g.id === student.group);
+
+            return {
+                student: `${student.name} ${student.surname}`,
+                group: group ? group.name : 'Без группы',
+                average: parseFloat(average),
+                total: totalGrades,
+                count: gradeCount,
+                max: gradeCount > 0 ? maxGrade : 0,
+                min: gradeCount > 0 && minGrade < this.settings.maxGrade ? minGrade : 0
+            };
+        });
+
+        let html = `
+            <div class="report-section">
+                <h3>Успеваемость студентов</h3>
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Студент</th>
+                            <th>Группа</th>
+                            <th>Средний балл</th>
+                            <th>Сумма баллов</th>
+                            <th>Количество оценок</th>
+                            <th>Макс. оценка</th>
+                            <th>Мин. оценка</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${gradesData.map(item => `
+                            <tr>
+                                <td>${item.student}</td>
+                                <td>${item.group}</td>
+                                <td>${item.average}</td>
+                                <td>${item.total}</td>
+                                <td>${item.count}</td>
+                                <td>${item.max}</td>
+                                <td>${item.min || '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                <div class="report-summary">
+                    <div class="summary-item">
+                        <div class="value">${(gradesData.reduce((sum, item) => sum + item.average, 0) / gradesData.length).toFixed(2)}</div>
+                        <div class="label">Средний балл по курсу</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="value">${gradesData.filter(item => item.average >= 4).length}</div>
+                        <div class="label">Студентов с хорошими оценками</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return html;
+    }
+
+    generateActivityReport() {
+        const groupData = this.groups.map(group => {
+            const groupStudents = this.students.filter(s => s.group === group.id && s.status === 'active');
+            const scheduleCount = Object.keys(group.schedule || {}).length;
+            
+            let totalAttendance = 0;
+            let totalSessions = 0;
+            
+            groupStudents.forEach(student => {
+                const studentJournal = this.journal[student.id] || {};
+                ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].forEach(day => {
+                    const dayData = studentJournal[day];
+                    if (dayData && dayData.attendance !== undefined) {
+                        totalSessions++;
+                        if (dayData.attendance) totalAttendance++;
+                    }
+                });
+            });
+
+            const attendanceRate = totalSessions > 0 ? Math.round((totalAttendance / totalSessions) * 100) : 0;
+
+            return {
+                name: group.name,
+                students: groupStudents.length,
+                schedule: scheduleCount,
+                attendance: attendanceRate,
+                color: group.color
+            };
+        });
+
+        let html = `
+            <div class="report-section">
+                <h3>Активность групп</h3>
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Группа</th>
+                            <th>Количество студентов</th>
+                            <th>Занятий в неделю</th>
+                            <th>Посещаемость</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${groupData.map(item => {
+                            const status = item.attendance >= 80 ? 'Активная' : item.attendance >= 60 ? 'Средняя' : 'Низкая';
+                            return `
+                                <tr>
+                                    <td style="border-left: 4px solid ${item.color}; padding-left: 12px;">${item.name}</td>
+                                    <td>${item.students}</td>
+                                    <td>${item.schedule}</td>
+                                    <td>${item.attendance}%</td>
+                                    <td>${status}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+                <div class="report-summary">
+                    <div class="summary-item">
+                        <div class="value">${groupData.length}</div>
+                        <div class="label">Всего групп</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="value">${groupData.filter(item => item.attendance >= 80).length}</div>
+                        <div class="label">Активных групп</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="value">${groupData.reduce((sum, item) => sum + item.students, 0)}</div>
+                        <div class="label">Студентов в группах</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return html;
+    }
+
+    showReportModal(title, content) {
+        const modal = document.getElementById('report-modal');
+        const titleElement = document.getElementById('report-modal-title');
+        const contentElement = document.getElementById('report-content');
+
+        titleElement.textContent = title;
+        contentElement.innerHTML = content;
+
+        this.showModal(modal);
+    }
+
+    // Settings
+    renderSettings() {
+        document.getElementById('institution-name').value = this.settings.institutionName;
+        document.getElementById('academic-year').value = this.settings.academicYear;
+        document.getElementById('max-grade').value = this.settings.maxGrade;
+        document.getElementById('bonus-system').value = this.settings.bonusSystem;
+    }
+
+    async saveSettings() {
+        this.settings.institutionName = document.getElementById('institution-name').value;
+        this.settings.academicYear = document.getElementById('academic-year').value;
+        this.settings.maxGrade = parseInt(document.getElementById('max-grade').value);
+        this.settings.bonusSystem = document.getElementById('bonus-system').value;
+
+        // Save to database
+        for (const [key, value] of Object.entries(this.settings)) {
+            await this.saveToDB('settings', { key, value });
+        }
+
+        // Show success message
+        const btn = document.getElementById('save-settings');
+        const originalText = btn.textContent;
+        btn.textContent = 'Сохранено!';
+        btn.style.background = '#10b981';
+        
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2563eb';
+        }, 2000);
+    }
+
+    // Modal functions
+    showModal(modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    closeModal() {
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.classList.remove('active');
+        });
+        document.body.style.overflow = 'auto';
+        
+        // Reset forms
+        document.querySelectorAll('.modal form').forEach(form => form.reset());
+    }
+}
+
+// Initialize app
+let app;
+document.addEventListener('DOMContentLoaded', () => {
+    app = new EduCRM();
+});
+
+// Export for PDF (placeholder function)
+document.getElementById('export-report')?.addEventListener('click', () => {
+    window.print();
+});
