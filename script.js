@@ -5,7 +5,7 @@ class EduCRM {
         this.currentGroupId = null;
         this.currentJournalGroupId = null;
         this.currentJournalMonth = new Date(); // Initialize with current date
-        this.currentJournalView = 'month'; // 'month' or 'week'
+        this.currentJournalView = 'week'; // 'month' or 'week'
         this.currentJournalWeek = 0; // Index of the current week in the month (0-indexed)
         this.currentCommentContext = { groupId: null, date: null, studentId: null }; // New property for comment modal
         this.students = [];
@@ -274,9 +274,13 @@ class EduCRM {
         document.querySelectorAll('[data-report]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const reportType = e.currentTarget.dataset.report;
-                this.generateReport(reportType);
+                this.openReportOptionsModal(reportType);
             });
         });
+
+        // Report options modal
+        document.getElementById('report-group-select').addEventListener('change', (e) => this.populateReportStudentSelect(e.target.value));
+        document.getElementById('report-options-form').addEventListener('submit', (e) => this.handleReportOptionsSubmit(e));
 
         // Mobile menu toggle
         this.addMobileMenuToggle();
@@ -402,21 +406,30 @@ class EduCRM {
 
     calculateAverageAttendance() {
         let totalAttendance = 0;
-        let totalSessions = 0;
+        let totalPossibleSessions = 0; // Total sessions based on actual journal entries
 
         for (const groupId in this.journal) {
+            const group = this.groups.find(g => g.id === groupId);
+            if (!group || !group.schedule) continue;
+
             for (const dateKey in this.journal[groupId]) {
-                for (const studentId in this.journal[groupId][dateKey]) {
-                    const dayData = this.journal[groupId][dateKey][studentId];
-                    if (dayData.attendance !== undefined) {
-                        totalSessions++;
-                        if (dayData.attendance) totalAttendance++;
+                const entryDate = new Date(dateKey);
+                const dayOfWeek = entryDate.getDay() === 0 ? 6 : entryDate.getDay() - 1;
+                const dayName = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'][dayOfWeek];
+
+                if (group.schedule[dayName]) { // Only count if a lesson was scheduled for that day
+                    for (const studentId in this.journal[groupId][dateKey]) {
+                        const dayData = this.journal[groupId][dateKey][studentId];
+                        if (dayData.attendance !== undefined) {
+                            totalPossibleSessions++;
+                            if (dayData.attendance) totalAttendance++;
+                        }
                     }
                 }
             }
         }
 
-        return totalSessions > 0 ? Math.round((totalAttendance / totalSessions) * 100) : 85;
+        return totalPossibleSessions > 0 ? Math.round((totalAttendance / totalPossibleSessions) * 100) : 85;
     }
 
     calculateAverageGrade() {
@@ -549,11 +562,17 @@ class EduCRM {
         grid.innerHTML = students.map(student => {
             const group = this.groups.find(g => g.id === student.group);
             const initials = `${student.name[0]}${student.surname[0]}`.toUpperCase();
-            
+            const avatarColor = student.avatarColor || this.getRandomColor(); // Use existing color or generate new
+            // Store the generated color if it's new, so it persists across renders
+            if (!student.avatarColor) {
+                student.avatarColor = avatarColor;
+                this.saveToDB('students', student); // Persist the color
+            }
+
             return `
                 <div class="student-card animate-fade-in">
                     <div class="student-header">
-                        <div class="student-avatar">${initials}</div>
+                        <div class="student-avatar" style="background: ${avatarColor}; color: white;">${initials}</div>
                         <div class="student-actions">
                             <button class="action-btn edit" onclick="app.editStudent('${student.id}')">
                                 <i data-lucide="edit"></i>
@@ -563,7 +582,7 @@ class EduCRM {
                             </button>
                         </div>
                     </div>
-                    <div class="student-name">${student.name} ${student.surname}</div>
+                    <div class="student-name" onclick="app.showStudentAnalytics('${student.id}')">${student.name} ${student.surname}</div>
                     <div class="student-group">${group ? group.name : 'Без группы'}</div>
                     <div class="student-contact">
                         ${student.email ? `
@@ -883,8 +902,14 @@ class EduCRM {
         this.populateJournalGroupSelect();
         this.updateMonthDisplay();
         this.updateWeekDisplay();
+        this.updateJournalViewUI(); // Ensure UI reflects the default 'week' view
         // If a group is already selected, load the journal for it
         if (this.currentJournalGroupId) {
+            this.loadJournal(this.currentJournalGroupId, this.currentJournalMonth);
+        } else if (this.groups.length > 0) {
+            // Automatically select the first group if none is selected
+            this.currentJournalGroupId = this.groups[0].id;
+            document.getElementById('group-select').value = this.currentJournalGroupId;
             this.loadJournal(this.currentJournalGroupId, this.currentJournalMonth);
         }
     }
@@ -1011,14 +1036,14 @@ class EduCRM {
             const monthYear = month.toISOString().substring(0, 7);
             const monthlyAssessment = this.monthlyAssessments[this.currentJournalGroupId]?.[monthYear]?.[student.id] || { examScore: 0, bonusPoints: 0, finalGrade: 0 };
 
-            let totalGradesForMonth = 0;
-            
-            const groupJournal = this.journal[this.currentJournalGroupId] || {};
-            for (const dateKey in groupJournal) {
-                if (dateKey.startsWith(monthYear) && groupJournal[dateKey][student.id] && groupJournal[dateKey][student.id].grade) {
-                    totalGradesForMonth += Number(groupJournal[dateKey][student.id].grade);
+            let totalGradesForWeek = 0;
+            lessonDaysInWeek.forEach(day => {
+                const dateKey = day.date.toISOString().split('T')[0];
+                const studentDayData = (this.journal[this.currentJournalGroupId]?.[dateKey]?.[student.id]) || {};
+                if (studentDayData.grade && studentDayData.grade > 0) {
+                    totalGradesForWeek += Number(studentDayData.grade);
                 }
-            }
+            });
 
             const daysCells = lessonDaysInWeek.map(day => {
                 const dateKey = day.date.toISOString().split('T')[0];
@@ -1044,11 +1069,11 @@ class EduCRM {
                 `;
             }).join('');
 
-            const totalSum = totalGradesForMonth + monthlyAssessment.bonusPoints; // Removed examScore from weekly total
+            const totalSum = totalGradesForWeek + monthlyAssessment.bonusPoints;
 
             return `
                 <tr>
-                    <td class="student-name">${student.name} ${student.surname}</td>
+                    <td class="student-name" onclick="app.showStudentAnalytics('${student.id}')">${student.name} ${student.surname}</td>
                     ${daysCells}
                     <td>
                         <input type="number" min="0" max="10" value="${monthlyAssessment.bonusPoints || ''}"
@@ -1070,6 +1095,11 @@ class EduCRM {
         
         this.updateStudentTotal(studentId);
         this.updateStats();
+        this.renderGradesChart(
+            this.students.filter(s => s.group === groupId && s.status === 'active'),
+            groupId,
+            this.currentJournalMonth
+        );
     }
 
     async updateGrade(groupId, date, studentId, grade) {
@@ -1082,6 +1112,11 @@ class EduCRM {
         
         this.updateStudentTotal(studentId);
         this.updateStats();
+        this.renderGradesChart(
+            this.students.filter(s => s.group === groupId && s.status === 'active'),
+            groupId,
+            this.currentJournalMonth
+        );
     }
 
     openCommentModal(groupId, date, studentId) {
@@ -1133,6 +1168,11 @@ class EduCRM {
         });
         
         this.updateStudentTotal(studentId);
+        this.renderGradesChart(
+            this.students.filter(s => s.group === groupId && s.status === 'active'),
+            groupId,
+            this.currentJournalMonth
+        );
     }
 
     async updateExamScore(groupId, studentId, examScore) {
@@ -1203,21 +1243,22 @@ class EduCRM {
         const monthlyWeeks = this.generateMonthlyJournal(group, month);
         const labels = monthlyWeeks.map((_, index) => `Неделя ${index + 1}`);
 
+        let maxTotalScore = 0; // To dynamically set y-axis max
+
         const datasets = students.map((student, studentIndex) => {
             const studentWeeklyScores = monthlyWeeks.map(weekData => {
                 let weekTotalGrade = 0;
-                let weekGradeCount = 0;
                 weekData.forEach(day => {
                     if (day && day.hasLesson) {
                         const dateKey = day.date.toISOString().split('T')[0];
                         const studentDayData = (this.journal[groupId]?.[dateKey]?.[student.id]) || {};
                         if (studentDayData.grade && studentDayData.grade > 0) {
                             weekTotalGrade += Number(studentDayData.grade);
-                            weekGradeCount++;
                         }
                     }
                 });
-                return weekGradeCount > 0 ? weekTotalGrade / weekGradeCount : 0; // Average grade for the week
+                maxTotalScore = Math.max(maxTotalScore, weekTotalGrade); // Update max total score
+                return weekTotalGrade; // Total grade for the week
             });
 
             // Generate a distinct color for each student
@@ -1246,6 +1287,9 @@ class EduCRM {
         if (this.gradesChart) {
             this.gradesChart.destroy();
         }
+
+        // Adjust maxTotalScore to be a bit higher than the actual max for better visualization
+        const yAxisMax = maxTotalScore > 0 ? Math.ceil(maxTotalScore / 5) * 5 + 5 : 10; // Ensure a reasonable max, e.g., multiple of 5, min 10
 
         this.gradesChart = new Chart(ctx, {
             type: 'line',
@@ -1278,7 +1322,7 @@ class EduCRM {
                             label: function(context) {
                                 const studentName = context.dataset.label;
                                 const score = context.parsed.y;
-                                return `${studentName}: ${score.toFixed(1)}`;
+                                return `${studentName}: ${score}`;
                             }
                         }
                     }
@@ -1300,10 +1344,10 @@ class EduCRM {
                     },
                     y: {
                         beginAtZero: true,
-                        max: this.settings.maxGrade,
+                        max: yAxisMax, // Dynamically set max value
                         title: {
                             display: true,
-                            text: 'Средний балл',
+                            text: 'Итоговый балл',
                             color: '#333',
                             font: {
                                 size: 14,
@@ -1311,7 +1355,7 @@ class EduCRM {
                             }
                         },
                         ticks: {
-                            stepSize: 1
+                            stepSize: yAxisMax > 10 ? Math.ceil(yAxisMax / 10) : 1 // Adjust step size based on max value
                         }
                     }
                 }
@@ -1397,53 +1441,204 @@ class EduCRM {
         // Reports are rendered in HTML, just need event listeners
     }
 
-    generateReport(type) {
+    openReportOptionsModal(reportType) {
+        this.currentReportType = reportType;
+        const modal = document.getElementById('report-options-modal');
+        const titleElement = document.getElementById('report-options-modal-title');
+        
+        const titles = {
+            attendance: 'Отчет по посещаемости',
+            grades: 'Отчет по успеваемости',
+            activity: 'Отчет по активности групп'
+        };
+        titleElement.textContent = titles[reportType] || 'Параметры отчета';
+
+        this.populateReportGroupSelect();
+        this.populateReportStudentSelect('all'); // Initially populate with all students
+        this.updateReportDateRange('all'); // Set default dates based on all groups
+
+        this.showModal(modal);
+        lucide.createIcons();
+    }
+
+    getMinMaxJournalDates(groupId = 'all') {
+        let minDate = null;
+        let maxDate = null;
+
+        const groupsToConsider = groupId === 'all' ? this.groups : this.groups.filter(g => g.id === groupId);
+
+        groupsToConsider.forEach(group => {
+            const groupJournal = this.journal[group.id] || {};
+            for (const dateKey in groupJournal) {
+                const entryDate = new Date(dateKey);
+                const dayOfWeek = entryDate.getDay() === 0 ? 6 : entryDate.getDay() - 1;
+                const dayName = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'][dayOfWeek];
+
+                // Only consider dates where a lesson was scheduled
+                if (group.schedule && group.schedule[dayName]) {
+                    if (!minDate || entryDate < minDate) {
+                        minDate = entryDate;
+                    }
+                    if (!maxDate || entryDate > maxDate) {
+                        maxDate = entryDate;
+                    }
+                }
+            }
+        });
+
+        // If no journal entries, default to current month
+        if (!minDate || !maxDate) {
+            const today = new Date();
+            minDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            maxDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        }
+
+        return { minDate, maxDate };
+    }
+
+    populateReportGroupSelect() {
+        const select = document.getElementById('report-group-select');
+        select.innerHTML = '<option value="all">Все группы</option>' +
+            this.groups.map(group => `<option value="${group.id}">${group.name}</option>`).join('');
+        
+        // Add event listener to update dates when group selection changes
+        select.removeEventListener('change', this.handleReportGroupChange); // Remove existing to prevent duplicates
+        select.addEventListener('change', (e) => this.handleReportGroupChange(e));
+    }
+
+    handleReportGroupChange(e) {
+        const groupId = e.target.value;
+        this.populateReportStudentSelect(groupId);
+        this.updateReportDateRange(groupId);
+    }
+
+    updateReportDateRange(groupId) {
+        const { minDate, maxDate } = this.getMinMaxJournalDates(groupId);
+        document.getElementById('report-start-date').value = minDate.toISOString().split('T')[0];
+        document.getElementById('report-end-date').value = maxDate.toISOString().split('T')[0];
+    }
+
+    populateReportStudentSelect(groupId) {
+        const select = document.getElementById('report-student-select');
+        select.innerHTML = '<option value="all">Все студенты</option>';
+        select.disabled = false;
+
+        let studentsToDisplay = this.students.filter(s => s.status === 'active');
+
+        if (groupId !== 'all') {
+            studentsToDisplay = studentsToDisplay.filter(s => s.group === groupId);
+        }
+
+        select.innerHTML += studentsToDisplay.map(student =>
+            `<option value="${student.id}">${student.name} ${student.surname}</option>`
+        ).join('');
+
+        // Add event listener to auto-select group when a student is chosen
+        select.removeEventListener('change', this.handleReportStudentChange);
+        select.addEventListener('change', (e) => this.handleReportStudentChange(e));
+    }
+
+    handleReportStudentChange(e) {
+        const studentId = e.target.value;
+        if (studentId !== 'all') {
+            const student = this.students.find(s => s.id === studentId);
+            if (student && student.group) {
+                document.getElementById('report-group-select').value = student.group;
+                // Manually trigger change event to update date ranges if needed
+                document.getElementById('report-group-select').dispatchEvent(new Event('change'));
+            }
+        }
+    }
+
+    async handleReportOptionsSubmit(e) {
+        e.preventDefault();
+        this.closeModal(); // Close options modal
+
+        const groupId = document.getElementById('report-group-select').value;
+        const studentId = document.getElementById('report-student-select').value;
+        const startDate = document.getElementById('report-start-date').value;
+        const endDate = document.getElementById('report-end-date').value;
+
         let reportContent = '';
         let reportTitle = '';
 
-        switch (type) {
+        switch (this.currentReportType) {
             case 'attendance':
                 reportTitle = 'Отчет по посещаемости';
-                reportContent = this.generateAttendanceReport();
+                reportContent = this.generateAttendanceReport(groupId, studentId, startDate, endDate);
                 break;
             case 'grades':
                 reportTitle = 'Успеваемость студентов';
-                reportContent = this.generateGradesReport();
+                reportContent = this.generateGradesReport(groupId, studentId, startDate, endDate);
                 break;
             case 'activity':
                 reportTitle = 'Активность групп';
-                reportContent = this.generateActivityReport();
+                reportContent = this.generateActivityReport(groupId, startDate, endDate);
                 break;
         }
 
         this.showReportModal(reportTitle, reportContent);
     }
 
-    generateAttendanceReport() {
-        const attendanceData = this.students.filter(s => s.status === 'active').map(student => {
-            const studentJournal = this.journal[student.id] || {};
-            let totalSessions = 0;
+    generateAttendanceReport(filterGroupId = 'all', filterStudentId = 'all', startDate = null, endDate = null) {
+        let filteredStudents = this.students.filter(s => s.status === 'active');
+        if (filterGroupId !== 'all') {
+            filteredStudents = filteredStudents.filter(s => s.group === filterGroupId);
+        }
+        if (filterStudentId !== 'all') {
+            filteredStudents = filteredStudents.filter(s => s.id === filterStudentId);
+        }
+
+        const attendanceData = filteredStudents.map(student => {
+            let totalActualSessions = 0; // Sessions where a journal entry exists
             let attendedSessions = 0;
 
-            ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].forEach(day => {
-                const dayData = studentJournal[day];
-                if (dayData && dayData.attendance !== undefined) {
-                    totalSessions++;
-                    if (dayData.attendance) attendedSessions++;
-                }
-            });
-
-            const attendanceRate = totalSessions > 0 ? Math.round((attendedSessions / totalSessions) * 100) : 0;
             const group = this.groups.find(g => g.id === student.group);
+            if (!group) return null;
+            const groupSchedule = group.schedule || {};
 
+            const start = startDate ? new Date(startDate) : null;
+            const end = endDate ? new Date(endDate) : null;
+
+            if (start) start.setHours(0, 0, 0, 0);
+            if (end) end.setHours(23, 59, 59, 999);
+
+            const studentGroupJournal = this.journal[student.group] || {};
+
+            for (const dateKey in studentGroupJournal) {
+                const entryDate = new Date(dateKey);
+
+                if ((start && entryDate < start) || (end && entryDate > end)) {
+                    continue;
+                }
+
+                const dayOfWeek = entryDate.getDay() === 0 ? 6 : entryDate.getDay() - 1;
+                const dayName = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'][dayOfWeek];
+
+                // Only consider dates where a lesson was scheduled AND a journal entry exists for the student
+                if (groupSchedule[dayName] && studentGroupJournal[dateKey][student.id]) {
+                    totalActualSessions++;
+                    const studentDayData = studentGroupJournal[dateKey][student.id];
+                    if (studentDayData.attendance) {
+                        attendedSessions++;
+                    }
+                }
+            }
+
+            const attendanceRate = totalActualSessions > 0 ? Math.round((attendedSessions / totalActualSessions) * 100) : 0;
+            
             return {
                 student: `${student.name} ${student.surname}`,
-                group: group ? group.name : 'Без группы',
+                group: group.name,
                 attended: attendedSessions,
-                total: totalSessions,
+                total: totalActualSessions,
                 percentage: attendanceRate
             };
-        });
+        }).filter(Boolean); // Filter out null entries
+
+        if (attendanceData.length === 0) {
+            return '<p class="no-data">Нет данных для отображения по выбранным фильтрам.</p>';
+        }
 
         let html = `
             <div class="report-section">
@@ -1472,7 +1667,7 @@ class EduCRM {
                 </table>
                 <div class="report-summary">
                     <div class="summary-item">
-                        <div class="value">${Math.round(attendanceData.reduce((sum, item) => sum + item.percentage, 0) / attendanceData.length)}%</div>
+                        <div class="value">${attendanceData.length > 0 ? Math.round(attendanceData.reduce((sum, item) => sum + item.percentage, 0) / attendanceData.length) : 0}%</div>
                         <div class="label">Средняя посещаемость</div>
                     </div>
                     <div class="summary-item">
@@ -1486,23 +1681,44 @@ class EduCRM {
         return html;
     }
 
-    generateGradesReport() {
-        const gradesData = this.students.filter(s => s.status === 'active').map(student => {
-            const studentJournal = this.journal[student.id] || {};
+    generateGradesReport(filterGroupId = 'all', filterStudentId = 'all', startDate = null, endDate = null) {
+        let filteredStudents = this.students.filter(s => s.status === 'active');
+        if (filterGroupId !== 'all') {
+            filteredStudents = filteredStudents.filter(s => s.group === filterGroupId);
+        }
+        if (filterStudentId !== 'all') {
+            filteredStudents = filteredStudents.filter(s => s.id === filterStudentId);
+        }
+
+        const gradesData = filteredStudents.map(student => {
             let totalGrades = 0;
             let gradeCount = 0;
             let maxGrade = 0;
             let minGrade = this.settings.maxGrade;
 
-            ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].forEach(day => {
-                const dayData = studentJournal[day] || {};
-                if (dayData.grade && dayData.grade > 0) {
-                    totalGrades += dayData.grade;
-                    gradeCount++;
-                    maxGrade = Math.max(maxGrade, dayData.grade);
-                    minGrade = Math.min(minGrade, dayData.grade);
+            const studentGroupJournal = this.journal[student.group] || {};
+            for (const dateKey in studentGroupJournal) {
+                const entryDate = new Date(dateKey);
+                const start = startDate ? new Date(startDate) : null;
+                const end = endDate ? new Date(endDate) : null;
+
+                if (start) start.setHours(0, 0, 0, 0);
+                if (end) end.setHours(23, 59, 59, 999);
+
+                if ((start && entryDate < start) || (end && entryDate > end)) {
+                    continue;
                 }
-            });
+
+                if (studentGroupJournal[dateKey][student.id]) {
+                    const dayData = studentGroupJournal[dateKey][student.id];
+                    if (dayData.grade && dayData.grade > 0) {
+                        totalGrades += dayData.grade;
+                        gradeCount++;
+                        maxGrade = Math.max(maxGrade, dayData.grade);
+                        minGrade = Math.min(minGrade, dayData.grade);
+                    }
+                }
+            }
 
             const average = gradeCount > 0 ? (totalGrades / gradeCount).toFixed(2) : 0;
             const group = this.groups.find(g => g.id === student.group);
@@ -1516,7 +1732,11 @@ class EduCRM {
                 max: gradeCount > 0 ? maxGrade : 0,
                 min: gradeCount > 0 && minGrade < this.settings.maxGrade ? minGrade : 0
             };
-        });
+        }).filter(Boolean);
+
+        if (gradesData.length === 0) {
+            return '<p class="no-data">Нет данных для отображения по выбранным фильтрам.</p>';
+        }
 
         let html = `
             <div class="report-section">
@@ -1549,7 +1769,7 @@ class EduCRM {
                 </table>
                 <div class="report-summary">
                     <div class="summary-item">
-                        <div class="value">${(gradesData.reduce((sum, item) => sum + item.average, 0) / gradesData.length).toFixed(2)}</div>
+                        <div class="value">${gradesData.length > 0 ? (gradesData.reduce((sum, item) => sum + item.average, 0) / gradesData.length).toFixed(2) : 0}</div>
                         <div class="label">Средний балл по курсу</div>
                     </div>
                     <div class="summary-item">
@@ -1563,24 +1783,46 @@ class EduCRM {
         return html;
     }
 
-    generateActivityReport() {
-        const groupData = this.groups.map(group => {
+    generateActivityReport(filterGroupId = 'all', startDate = null, endDate = null) {
+        let filteredGroups = this.groups;
+        if (filterGroupId !== 'all') {
+            filteredGroups = filteredGroups.filter(g => g.id === filterGroupId);
+        }
+
+        const groupData = filteredGroups.map(group => {
             const groupStudents = this.students.filter(s => s.group === group.id && s.status === 'active');
             const scheduleCount = Object.keys(group.schedule || {}).length;
             
             let totalAttendance = 0;
             let totalSessions = 0;
             
-            groupStudents.forEach(student => {
-                const studentJournal = this.journal[student.id] || {};
-                ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].forEach(day => {
-                    const dayData = studentJournal[day];
-                    if (dayData && dayData.attendance !== undefined) {
-                        totalSessions++;
-                        if (dayData.attendance) totalAttendance++;
-                    }
-                });
-            });
+            const currentGroupJournal = this.journal[group.id] || {};
+            for (const dateKey in currentGroupJournal) {
+                const entryDate = new Date(dateKey);
+                const start = startDate ? new Date(startDate) : null;
+                const end = endDate ? new Date(endDate) : null;
+
+                if (start) start.setHours(0, 0, 0, 0);
+                if (end) end.setHours(23, 59, 59, 999);
+
+                if ((start && entryDate < start) || (end && entryDate > end)) {
+                    continue;
+                }
+
+                const dayOfWeek = entryDate.getDay() === 0 ? 6 : entryDate.getDay() - 1;
+                const dayName = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'][dayOfWeek];
+                
+                if (group.schedule && group.schedule[dayName]) {
+                    groupStudents.forEach(student => {
+                        if (currentGroupJournal[dateKey][student.id]) {
+                            totalSessions++;
+                            if (currentGroupJournal[dateKey][student.id].attendance) {
+                                totalAttendance++;
+                            }
+                        }
+                    });
+                }
+            }
 
             const attendanceRate = totalSessions > 0 ? Math.round((totalAttendance / totalSessions) * 100) : 0;
 
@@ -1592,6 +1834,10 @@ class EduCRM {
                 color: group.color
             };
         });
+
+        if (groupData.length === 0) {
+            return '<p class="no-data">Нет данных для отображения по выбранным фильтрам.</p>';
+        }
 
         let html = `
             <div class="report-section">
@@ -1683,6 +1929,202 @@ class EduCRM {
         }, 2000);
     }
 
+    // Student Analytics
+    showStudentAnalytics(studentId) {
+        this.currentStudentId = studentId;
+        this.switchSection('student-analytics');
+        this.renderStudentAnalytics();
+    }
+
+    renderStudentAnalytics() {
+        const student = this.students.find(s => s.id === this.currentStudentId);
+        if (!student) return;
+
+        const group = this.groups.find(g => g.id === student.group);
+        const initials = `${student.name[0]}${student.surname[0]}`.toUpperCase();
+
+        document.getElementById('analytics-student-name').textContent = `${student.name} ${student.surname}`;
+        document.getElementById('analytics-student-group').textContent = group ? group.name : 'Без группы';
+        
+        const avatarElement = document.getElementById('analytics-student-avatar');
+        avatarElement.textContent = initials;
+        avatarElement.style.background = student.avatarColor || this.getRandomColor();
+        avatarElement.style.color = 'white';
+
+        let totalActualSessions = 0;
+        let attendedSessions = 0;
+        let totalGrades = 0;
+        let gradeCount = 0;
+        const studentComments = [];
+
+        const studentGroup = this.groups.find(g => g.id === student.group);
+        if (studentGroup) {
+            const groupSchedule = studentGroup.schedule || {};
+            const studentJournal = this.journal[student.group] || {};
+
+            for (const dateKey in studentJournal) {
+                const entryDate = new Date(dateKey);
+                const currentDayOfWeek = entryDate.getDay() === 0 ? 6 : entryDate.getDay() - 1;
+                const currentDayName = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'][currentDayOfWeek];
+
+                if (groupSchedule[currentDayName]) { // Only consider if a lesson was scheduled for that day
+                    const studentDayData = studentJournal[dateKey][student.id];
+                    if (studentDayData) {
+                        totalActualSessions++; // Count actual recorded sessions
+                        if (studentDayData.attendance) {
+                            attendedSessions++;
+                        }
+                        if (studentDayData.grade && studentDayData.grade > 0) {
+                            totalGrades += Number(studentDayData.grade);
+                            gradeCount++;
+                        }
+                        if (studentDayData.comment) {
+                            studentComments.push({
+                                date: dateKey,
+                                comment: studentDayData.comment,
+                                groupName: studentGroup.name
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        const attendanceRate = totalAttendanceSessions > 0 ? Math.round((attendedAttendanceSessions / totalAttendanceSessions) * 100) : 0;
+        const averageGrade = gradeCount > 0 ? (totalGrades / gradeCount).toFixed(1) : 0;
+
+        this.animateNumber('analytics-attendance-rate', attendanceRate, '%');
+        this.animateNumber('analytics-average-grade', averageGrade);
+
+        this.renderStudentGradesChart(student.id);
+        this.renderStudentRecentComments(studentComments);
+        lucide.createIcons();
+    }
+
+    renderStudentGradesChart(studentId) {
+        const ctx = document.getElementById('studentGradesChart');
+        if (!ctx) return;
+
+        const studentGrades = [];
+        const labels = [];
+
+        // Collect all grades for the student across all groups and dates
+        for (const groupId in this.journal) {
+            for (const dateKey in this.journal[groupId]) {
+                if (this.journal[groupId][dateKey][studentId] && this.journal[groupId][dateKey][studentId].grade) {
+                    labels.push(dateKey);
+                    studentGrades.push(Number(this.journal[groupId][dateKey][studentId].grade));
+                }
+            }
+        }
+
+        // Sort by date
+        const sortedData = labels.map((label, index) => ({ date: new Date(label), grade: studentGrades[index] }))
+                                 .sort((a, b) => a.date - b.date);
+        
+        const sortedLabels = sortedData.map(item => item.date.toLocaleDateString('ru-RU'));
+        const sortedGrades = sortedData.map(item => item.grade);
+
+        if (this.studentGradesChart) {
+            this.studentGradesChart.destroy();
+        }
+
+        this.studentGradesChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: sortedLabels,
+                datasets: [{
+                    label: 'Оценки студента',
+                    data: sortedGrades,
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: '#2563eb',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                return `Оценка: ${context.parsed.y}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Дата',
+                            color: '#333',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: this.settings.maxGrade,
+                        title: {
+                            display: true,
+                            text: 'Оценка',
+                            color: '#333',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        },
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    renderStudentRecentComments(comments) {
+        const container = document.getElementById('analytics-recent-comments');
+        if (!container) return;
+
+        if (comments.length === 0) {
+            container.innerHTML = '<p class="no-comments">Нет комментариев для этого студента.</p>';
+            return;
+        }
+
+        // Sort comments by date, newest first
+        comments.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        container.innerHTML = comments.map(comment => `
+            <div class="activity-item">
+                <div class="activity-icon orange">
+                    <i data-lucide="message-square"></i>
+                </div>
+                <div class="activity-content">
+                    <p><strong>${comment.groupName}</strong> (${new Date(comment.date).toLocaleDateString('ru-RU')}): ${comment.comment}</p>
+                </div>
+            </div>
+        `).join('');
+        lucide.createIcons();
+    }
+
     // Modal functions
     showModal(modal) {
         modal.classList.add('active');
@@ -1698,6 +2140,88 @@ class EduCRM {
         // Reset forms
         document.querySelectorAll('.modal form').forEach(form => form.reset());
     }
+
+    getRandomColor() {
+        const letters = '0123456789ABCDEF';
+        let color = '#';
+        for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
+    }
+
+    exportReportToPdf() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const reportTitle = document.getElementById('report-modal-title').textContent;
+        const reportContentElement = document.getElementById('report-content');
+        console.log('Report HTML Content:', reportContentElement.innerHTML); // Log HTML content
+
+        // Add a font that supports Cyrillic characters.
+        // This is a common approach for jsPDF with custom fonts.
+        // You would typically load a .ttf file and convert it to a Base64 string.
+        // For this example, we'll use a placeholder for a common font like 'Roboto-Regular'.
+        // In a real application, you'd need to ensure this font data is correctly loaded.
+        // For now, we'll use 'helvetica' as a fallback and hope for the best with Cyrillic.
+        // A proper solution would involve including a font file and registering it.
+        // Example of adding a font (requires font data in Base64):
+        // doc.addFileToVFS('Roboto-Regular.ttf', 'BASE64_ENCODED_ROBOTO_FONT_DATA_HERE');
+        // doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+        // doc.setFont('Roboto');
+
+        doc.setFont('helvetica'); // Fallback to helvetica, which might have some Cyrillic support
+        doc.setFontSize(18);
+        doc.text(reportTitle, 14, 22);
+
+        // Extract table data
+        const table = reportContentElement.querySelector('table');
+        if (table) {
+            // Extract headers, handling potential nested headers if present (though not in current HTML)
+            const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+            const body = Array.from(table.querySelectorAll('tbody tr')).map(row =>
+                Array.from(row.querySelectorAll('td')).map(td => td.textContent.trim())
+            );
+            console.log('PDF Table Headers:', headers); // Log headers
+            console.log('PDF Table Body:', body); // Log body
+
+            doc.autoTable({
+                startY: 30,
+                head: [headers],
+                body: body,
+                theme: 'grid',
+                styles: {
+                    font: 'helvetica', // Use the fallback font
+                    fontSize: 10,
+                    cellPadding: 3,
+                    lineWidth: 0.1,
+                    lineColor: [0, 0, 0]
+                },
+                headStyles: {
+                    fillColor: [235, 235, 235],
+                    textColor: [0, 0, 0],
+                    fontStyle: 'bold'
+                },
+                alternateRowStyles: {
+                    fillColor: [245, 245, 245]
+                }
+            });
+        } else {
+            // If no table, just add the raw HTML content (simplified)
+            doc.setFontSize(12);
+            doc.html(reportContentElement, {
+                callback: function (doc) {
+                    doc.save(`${reportTitle}.pdf`);
+                },
+                x: 10,
+                y: 30,
+                width: 180, // Max width of content
+                windowWidth: 650 // Window width used to render HTML.
+            });
+            return;
+        }
+
+        doc.save(`${reportTitle}.pdf`);
+    }
 }
 
 // Initialize app
@@ -1706,7 +2230,7 @@ document.addEventListener('DOMContentLoaded', () => {
     app = new EduCRM();
 });
 
-// Export for PDF (placeholder function)
+// Export for PDF
 document.getElementById('export-report')?.addEventListener('click', () => {
-    window.print();
+    app.exportReportToPdf();
 });

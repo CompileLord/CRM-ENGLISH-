@@ -4,9 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EduCRM - Система управления обучением</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="style.css">
-    <script src="lucide.js"></script>
-    <script src="chart.js"></script>
+    <script src="node_modules_ignore_this_it_is_liberties/lucide.js"></script>
+    <script src="node_modules_ignore_this_it_is_liberties/chart.js"></script>
+    <script src="node_modules_ignore_this_it_is_liberties/jspdf.umd.min.js"></script>
+    <script src="node_modules_ignore_this_it_is_liberties/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
     <!-- Боковая панель -->
@@ -268,6 +271,52 @@
                 <button class="btn btn-primary" id="save-settings">Сохранить настройки</button>
             </div>
         </section>
+
+        <!-- Аналитика студента -->
+        <section id="student-analytics" class="section">
+            <div class="analytics-header">
+                <div class="student-profile-summary">
+                    <div class="student-avatar-large" id="analytics-student-avatar"></div>
+                    <div>
+                        <h2 id="analytics-student-name"></h2>
+                        <p id="analytics-student-group"></p>
+                    </div>
+                </div>
+                <div class="analytics-stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <i data-lucide="calendar-check"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="analytics-attendance-rate">0%</h3>
+                            <p>Посещаемость</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon purple">
+                            <i data-lucide="trophy"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="analytics-average-grade">0</h3>
+                            <p>Средний балл</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="analytics-content-grid">
+                <div class="chart-container">
+                    <h3>Динамика оценок</h3>
+                    <canvas id="studentGradesChart"></canvas>
+                </div>
+                <div class="activity-container">
+                    <h3>Последние комментарии</h3>
+                    <div id="analytics-recent-comments" class="activity-list">
+                        <!-- Recent comments will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </section>
     </main>
 
     <!-- Модальное окно для студентов -->
@@ -423,6 +472,44 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
                     <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно для выбора параметров отчета -->
+    <div id="report-options-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="report-options-modal-title">Параметры отчета</h2>
+                <button class="modal-close">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="report-options-form">
+                <div class="form-group">
+                    <label for="report-group-select">Группа</label>
+                    <select id="report-group-select" class="form-control">
+                        <option value="all">Все группы</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="report-student-select">Студент</label>
+                    <select id="report-student-select" class="form-control" disabled>
+                        <option value="all">Все студенты</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="report-start-date">Начальная дата</label>
+                    <input type="date" id="report-start-date" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="report-end-date">Конечная дата</label>
+                    <input type="date" id="report-end-date" class="form-control">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
+                    <button type="submit" class="btn btn-primary" id="generate-filtered-report-btn">Сгенерировать отчет</button>
                 </div>
             </form>
         </div>
