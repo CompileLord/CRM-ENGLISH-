@@ -1,0 +1,303 @@
+/* modern.css - New styles for glassmorphism and theme switching */
+
+/* * ===================================================================
+ * Root variables & Theming
+ * ===================================================================
+*/
+
+/* Root variables for theme */
+:root {
+    /* Glassmorphism Base */
+    --glass-bg: rgba(255, 255, 255, 0.3);
+    --glass-border: rgba(255, 255, 255, 0.5);
+    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+    --glass-blur: 12px; /* Slightly increased blur for a softer effect */
+
+    /* Light Theme Palette */
+    --primary-color: #4A6CFD; /* A more modern, vibrant blue */
+    --primary-dark: #3a5de0;
+    --primary-light: #f0f3ff;
+    --secondary-color: #6C757D;
+    --text-primary: #1e293b; /* Dark slate for better readability */
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --bg-main: #f8f9fa; /* A very light, clean gray */
+    --bg-card: #FFFFFF;
+    --border-color: #e2e8f0;
+    --success-color: #10B981;
+    --warning-color: #F59E0B;
+    --danger-color: #EF4444;
+    --info-color: #3B82F6;
+}
+
+/* Dark theme variables */
+body.dark-theme {
+    /* Glassmorphism for Dark Theme */
+    --glass-bg: rgba(20, 20, 30, 0.45); /* Darker, slightly blue-tinted glass */
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
+    /* Dark Theme Palette */
+    --primary-color: #60A5FA; /* Brighter blue for dark backgrounds */
+    --primary-dark: #3B82F6;
+    --primary-light: #1E293B;
+    --secondary-color: #94A3B8;
+    --text-primary: #e2e8f0; /* Soft white */
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --bg-main: #0f172a; /* Deep, dark navy blue */
+    --bg-card: #1e293b; /* Slate gray for cards */
+    --border-color: #334155;
+    --success-color: #22C55E;
+    --warning-color: #FBBF24;
+    --danger-color: #F87171;
+    --info-color: #60A5FA;
+}
+
+/* * ===================================================================
+ * General Body & Typography
+ * ===================================================================
+*/
+body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
+}
+
+
+/* * ===================================================================
+ * Sidebar & Header (Glassmorphism Elements)
+ * ===================================================================
+*/
+
+/* Sidebar Glassmorphism */
+.sidebar {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border-right: 1px solid var(--glass-border); /* Changed to border-right for a cleaner look */
+    box-shadow: var(--glass-shadow);
+    border-radius: 0 24px 24px 0; /* Softer, larger radius */
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 250px;
+    height: 100vh;
+    z-index: 100;
+    transition: all 0.3s ease-in-out;
+    color: var(--text-primary);
+}
+
+.sidebar-header {
+    border-bottom: 1px solid var(--glass-border);
+    color: var(--text-primary);
+}
+
+.sidebar-nav .nav-item {
+    color: var(--text-secondary);
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    border-radius: 8px; /* Add radius to nav items */
+    margin: 4px 10px; /* Add some margin for spacing */
+    font-weight: 500;
+}
+
+.sidebar-nav .nav-item:hover {
+    background: rgba(255, 255, 255, 0.08); /* A more subtle hover */
+    color: var(--primary-color);
+    transform: translateX(5px); /* Slight movement on hover */
+}
+
+.sidebar-nav .nav-item.active {
+    background: var(--primary-light);
+    color: var(--primary-color);
+    border-right: 3px solid var(--primary-color);
+    font-weight: 600;
+}
+
+/* Header Glassmorphism */
+.header {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: 24px; /* Softer, consistent border radius */
+    position: sticky;
+    top: 15px; /* A bit more space from top */
+    margin: 15px 40px;
+    width: calc(100% - 250px - 80px);
+    left: 250px;
+    z-index: 99;
+    transition: background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease, width 0.3s ease, left 0.3s ease;
+}
+
+
+/* * ===================================================================
+ * Components (Buttons, Switches)
+ * ===================================================================
+*/
+
+/* Theme Switcher */
+.theme-switcher {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    border-top: 1px solid var(--glass-border);
+    margin-top: auto;
+}
+
+.theme-switcher label {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+
+.theme-switcher input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--border-color); /* Use theme color */
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2); /* Add shadow to the knob */
+}
+
+input:checked + .slider {
+    background-color: var(--primary-color);
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px var(--primary-color);
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+.theme-icon {
+    width: 24px;
+    height: 24px;
+    margin-left: 10px;
+    color: var(--text-secondary); /* Use secondary text color for less emphasis */
+    transition: color 0.3s ease;
+}
+
+.dark-icon {
+    display: none;
+}
+
+body.dark-theme .light-icon {
+    display: none;
+}
+
+body.dark-theme .dark-icon {
+    display: block;
+}
+
+/* Back Button styles */
+.back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px; /* Slightly larger padding */
+    border: 1px solid var(--border-color);
+    border-radius: 12px; /* Softer radius */
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    margin-bottom: 20px;
+}
+
+.back-button:hover {
+    background: var(--primary-light);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+    transform: translateY(-2px); /* Lift effect */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+
+/* * ===================================================================
+ * Layout & Responsive
+ * ===================================================================
+*/
+
+/* Adjust main content padding for sticky header */
+.main-content {
+    padding-top: 120px; /* Adjust for new header margin/height */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .header {
+        width: calc(100% - 30px); /* Adjust for smaller margins */
+        left: 15px;
+        margin: 10px;
+    }
+
+    .sidebar {
+        border-radius: 0;
+        /* Consider adding a transform: translateX(-100%); for a hidden state on mobile */
+    }
+
+    .main-content {
+        padding-top: 90px;
+    }
+}
+/* Header Glassmorphism */
+.header {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: 20px; /* Сделаем радиус чуть меньше */
+    position: sticky;
+    
+    /* === ИЗМЕНЕНИЯ ЗДЕСЬ === */
+    padding: 8px 25px;      /* Уменьшаем вертикальные отступы внутри хедера */
+    top: 10px;              /* Поднимаем хедер чуть выше */
+    margin: 10px 40px;      /* Уменьшаем вертикальные отступы снаружи */
+    /* ======================= */
+    
+    width: calc(100% - 250px - 80px);
+    left: 250px;
+    z-index: 99;
+    transition: all 0.3s ease; /* Упрощенная запись transition */
+}
+.header-left {
+    display: flex;
+    gap: 2%;
+}
+
+.header-right{
+    align-items: center;
+}

@@ -6,6 +6,7 @@
     <title>EduCRM - Система управления обучением</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="modern.css">
     <script src="node_modules_ignore_this_it_is_liberties/lucide.js"></script>
     <script src="node_modules_ignore_this_it_is_liberties/chart.js"></script>
     <script src="node_modules_ignore_this_it_is_liberties/jspdf.umd.min.js"></script>
@@ -46,6 +47,14 @@
                 </li>
             </ul>
         </nav>
+        <div class="theme-switcher">
+            <label class="switch">
+                <input type="checkbox" id="theme-toggle">
+                <span class="slider round"></span>
+            </label>
+            <i data-lucide="sun" class="theme-icon light-icon"></i>
+            <i data-lucide="moon" class="theme-icon dark-icon"></i>
+        </div>
     </aside>
 
     <!-- Основной контент -->
@@ -53,8 +62,14 @@
         <!-- Шапка -->
         <header class="header">
             <div class="header-left">
-                <h1 id="page-title">Дашборд</h1>
-                <p id="page-subtitle">Обзор системы управления обучением</p>
+                <button class="back-button" style="display: none;">
+                    <i data-lucide="arrow-left"></i>
+                    <span>Назад</span>
+                </button>
+                <div>
+                    <h1 id="page-title">Дашборд</h1>
+                    <p id="page-subtitle">Обзор системы управления обучением</p>
+                </div>
             </div>
             <div class="header-right">
                 <div class="notification-btn">
@@ -177,11 +192,11 @@
                             <i data-lucide="chevron-right"></i>
                         </button>
                     </div>
-                    <button class="btn btn-secondary" id="toggle-view-btn">Месяц/Неделя</button>
+                    <button class="btn btn-secondary" id="toggle-view-btn">Неделя</button>
                 </div>
             </div>
             <div class="journal-content">
-                <div class="journal-view-container" id="weekly-journal-view">
+                <div class="journal-view-container" id="weekly-journal-view" style="display: none;">
                     <div class="chart-container">
                         <h3>Средний балл студентов</h3>
                         <canvas id="gradesChart"></canvas>
@@ -195,7 +210,7 @@
                         </table>
                     </div>
                 </div>
-                <div class="journal-view-container" id="monthly-summary-view" style="display: none;">
+                <div class="journal-view-container" id="monthly-summary-view">
                     <div class="monthly-summary-container">
                         <h3>Ежемесячный сводный отчет</h3>
                         <div id="monthly-summary-grid" class="monthly-summary-grid">

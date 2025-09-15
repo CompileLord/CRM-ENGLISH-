@@ -1,11 +1,12 @@
 class EduCRM {
     constructor() {
         this.currentSection = 'dashboard';
+        this.navigationHistory = ['dashboard']; // Initialize navigation history
         this.currentStudentId = null;
         this.currentGroupId = null;
         this.currentJournalGroupId = null;
         this.currentJournalMonth = new Date(); // Initialize with current date
-        this.currentJournalView = 'week'; // 'month' or 'week'
+        this.currentJournalView = 'month'; // 'month' or 'week'
         this.currentJournalWeek = 0; // Index of the current week in the month (0-indexed)
         this.currentCommentContext = { groupId: null, date: null, studentId: null }; // New property for comment modal
         this.students = [];
@@ -28,6 +29,7 @@ class EduCRM {
         this.initEventListeners();
         this.renderCurrentSection();
         this.updateStats();
+        this.applyTheme(); // Apply theme on initialization
         lucide.createIcons();
     }
 
@@ -223,6 +225,9 @@ class EduCRM {
             });
         });
 
+        // Back button
+        document.querySelector('.back-button').addEventListener('click', () => this.goBack());
+
         // Students
         document.getElementById('add-student-btn').addEventListener('click', () => this.openStudentModal());
         document.getElementById('student-search').addEventListener('input', (e) => this.filterStudents(e.target.value));
@@ -284,6 +289,9 @@ class EduCRM {
 
         // Mobile menu toggle
         this.addMobileMenuToggle();
+
+        // Theme toggle
+        document.getElementById('theme-toggle').addEventListener('change', () => this.toggleTheme());
     }
 
     addMobileMenuToggle() {
@@ -314,11 +322,17 @@ class EduCRM {
     }
 
     // Section switching
-    switchSection(sectionName) {
+    switchSection(sectionName, pushToHistory = true) {
         // Update navigation
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.toggle('active', item.dataset.section === sectionName);
         });
+
+        // Manage navigation history
+        if (pushToHistory && this.navigationHistory[this.navigationHistory.length - 1] !== sectionName) {
+            this.navigationHistory.push(sectionName);
+        }
+        this.updateBackButtonVisibility(); // Update visibility after history change
 
         // Update sections
         document.querySelectorAll('.section').forEach(section => {
@@ -332,10 +346,11 @@ class EduCRM {
             groups: ['Группы', 'Управление группами'],
             journal: ['Журнал', 'Журнал посещаемости и оценок'],
             reports: ['Отчеты', 'Генерация отчетов'],
-            settings: ['Настройки', 'Настройки системы']
+            settings: ['Настройки', 'Настройки системы'],
+            'student-analytics': ['Аналитика студента', 'Детальный обзор успеваемости'] // Add title for student analytics
         };
 
-        const [title, subtitle] = titles[sectionName];
+        const [title, subtitle] = titles[sectionName] || ['Неизвестно', '']; // Handle unknown sections
         document.getElementById('page-title').textContent = title;
         document.getElementById('page-subtitle').textContent = subtitle;
 
@@ -366,6 +381,14 @@ class EduCRM {
             case 'settings':
                 this.renderSettings();
                 break;
+            case 'student-analytics':
+                // Handled by showStudentAnalytics, no direct render here
+                break;
+        }
+        // Hide back button if on dashboard
+        if (this.currentSection === 'dashboard') {
+            document.querySelector('.back-button').style.display = 'none';
+            this.navigationHistory = ['dashboard']; // Reset history for dashboard
         }
     }
 
@@ -835,10 +858,11 @@ class EduCRM {
     }
 
     openJournalForGroup(groupId) {
-        this.switchSection('journal');
+        this.switchSection('journal'); // This will push 'journal' to history
         setTimeout(() => {
             document.getElementById('group-select').value = groupId;
             this.loadJournal(groupId, new Date()); // Load for current month
+            document.querySelector('.back-button').style.display = 'inline-flex'; // Ensure back button is visible
         }, 100);
     }
 
@@ -889,11 +913,12 @@ class EduCRM {
     }
 
     showGroupStudents(groupId) {
-        this.switchSection('students');
+        this.switchSection('students'); // This will push 'students' to history
         setTimeout(() => {
             document.getElementById('student-filter').value = 'active';
             const groupStudents = this.students.filter(s => s.group === groupId && s.status === 'active');
             this.displayStudents(groupStudents);
+            document.querySelector('.back-button').style.display = 'inline-flex'; // Ensure back button is visible
         }, 100);
     }
 
@@ -1034,7 +1059,8 @@ class EduCRM {
         
         tbody.innerHTML = students.map(student => {
             const monthYear = month.toISOString().substring(0, 7);
-            const monthlyAssessment = this.monthlyAssessments[this.currentJournalGroupId]?.[monthYear]?.[student.id] || { examScore: 0, bonusPoints: 0, finalGrade: 0 };
+            const monthlyAssessment = this.monthlyAssessments[this.currentJournalGroupId]?.[monthYear]?.[student.id] || { examScore: 0, bonusPoints: 0, finalGrade: 0, weeklyBonuses: {} };
+            const weeklyBonus = monthlyAssessment.weeklyBonuses?.[this.currentJournalWeek] || 0;
 
             let totalGradesForWeek = 0;
             lessonDaysInWeek.forEach(day => {
@@ -1055,11 +1081,11 @@ class EduCRM {
                 return `
                     <td>
                         <input type="checkbox" ${attendance ? 'checked' : ''}
-                               onchange="app.updateAttendance('${this.currentJournalGroupId}', '${dateKey}', '${student.id}', this.checked)">
+                               onchange="app.updateAttendance('${this.currentJournalGroupId}', '${dateKey}', '${student.id}', this.checked, event)">
                     </td>
                     <td>
                         <input type="number" min="0" max="${this.settings.maxGrade}" value="${grade || ''}"
-                               onchange="app.updateGrade('${this.currentJournalGroupId}', '${dateKey}', '${student.id}', this.value)">
+                               onchange="app.updateGrade('${this.currentJournalGroupId}', '${dateKey}', '${student.id}', this.value, event)">
                     </td>
                     <td>
                         <button class="action-btn small ${comment ? 'has-comment' : ''}" onclick="app.openCommentModal('${this.currentJournalGroupId}', '${dateKey}', '${student.id}')">
@@ -1069,23 +1095,29 @@ class EduCRM {
                 `;
             }).join('');
 
-            const totalSum = totalGradesForWeek + monthlyAssessment.bonusPoints;
+            const totalSum = totalGradesForWeek + weeklyBonus;
 
             return `
                 <tr>
                     <td class="student-name" onclick="app.showStudentAnalytics('${student.id}')">${student.name} ${student.surname}</td>
                     ${daysCells}
                     <td>
-                        <input type="number" min="0" max="10" value="${monthlyAssessment.bonusPoints || ''}"
-                               onchange="app.updateBonus('${this.currentJournalGroupId}', '${student.id}', this.value)">
+                        <input type="number" min="0" max="10" value="${weeklyBonus || ''}"
+                               onchange="app.updateBonus('${this.currentJournalGroupId}', '${student.id}', ${this.currentJournalWeek}, this.value)">
                     </td>
                     <td class="total-cell" id="total-${student.id}">${totalSum}</td>
                 </tr>
             `;
         }).join('');
+        lucide.createIcons(); // Re-render lucide icons for the newly added tbody content
     }
 
-    async updateAttendance(groupId, date, studentId, attended) {
+    async updateAttendance(groupId, date, studentId, attended, event) {
+        if (event) event.preventDefault(); // Prevent any default form submission or navigation
+
+        const journalTableContainer = document.querySelector('.journal-table-container');
+        const scrollTop = journalTableContainer ? journalTableContainer.scrollTop : 0;
+
         if (!this.journal[groupId]) this.journal[groupId] = {};
         if (!this.journal[groupId][date]) this.journal[groupId][date] = {};
         if (!this.journal[groupId][date][studentId]) this.journal[groupId][date][studentId] = {};
@@ -1100,9 +1132,18 @@ class EduCRM {
             groupId,
             this.currentJournalMonth
         );
+
+        if (journalTableContainer) {
+            journalTableContainer.scrollTop = scrollTop;
+        }
     }
 
-    async updateGrade(groupId, date, studentId, grade) {
+    async updateGrade(groupId, date, studentId, grade, event) {
+        if (event) event.preventDefault(); // Prevent any default form submission or navigation
+
+        const journalTableContainer = document.querySelector('.journal-table-container');
+        const scrollTop = journalTableContainer ? journalTableContainer.scrollTop : 0;
+
         if (!this.journal[groupId]) this.journal[groupId] = {};
         if (!this.journal[groupId][date]) this.journal[groupId][date] = {};
         if (!this.journal[groupId][date][studentId]) this.journal[groupId][date][studentId] = {};
@@ -1117,6 +1158,10 @@ class EduCRM {
             groupId,
             this.currentJournalMonth
         );
+
+        if (journalTableContainer) {
+            journalTableContainer.scrollTop = scrollTop;
+        }
     }
 
     openCommentModal(groupId, date, studentId) {
@@ -1150,15 +1195,18 @@ class EduCRM {
         ); // Re-render table to update comment icon state
     }
 
-    async updateBonus(groupId, studentId, bonus) {
+    async updateBonus(groupId, studentId, weekIndex, bonus) {
         const monthYear = this.currentJournalMonth.toISOString().substring(0, 7); // YYYY-MM
         if (!this.monthlyAssessments[groupId]) this.monthlyAssessments[groupId] = {};
         if (!this.monthlyAssessments[groupId][monthYear]) this.monthlyAssessments[groupId][monthYear] = {};
         if (!this.monthlyAssessments[groupId][monthYear][studentId]) {
-            this.monthlyAssessments[groupId][monthYear][studentId] = { examScore: 0, bonusPoints: 0, finalGrade: 0 };
+            this.monthlyAssessments[groupId][monthYear][studentId] = { examScore: 0, bonusPoints: 0, finalGrade: 0, weeklyBonuses: {} };
         }
         
-        this.monthlyAssessments[groupId][monthYear][studentId].bonusPoints = parseInt(bonus) || 0;
+        this.monthlyAssessments[groupId][monthYear][studentId].weeklyBonuses[weekIndex] = parseInt(bonus) || 0;
+        // Recalculate total monthly bonusPoints for backward compatibility or monthly summary display
+        this.monthlyAssessments[groupId][monthYear][studentId].bonusPoints = Object.values(this.monthlyAssessments[groupId][monthYear][studentId].weeklyBonuses).reduce((sum, b) => sum + b, 0);
+
         await this.saveToDB('monthlyAssessments', {
             id: `${groupId}-${monthYear}-${studentId}`, // Unique ID for monthly assessment per student
             groupId,
@@ -1192,37 +1240,71 @@ class EduCRM {
             data: this.monthlyAssessments[groupId][monthYear][studentId]
         });
         
-        this.updateStudentTotal(studentId);
+        this.updateMonthlyStudentTotal(studentId);
     }
 
     updateStudentTotal(studentId) {
         const groupId = this.currentJournalGroupId;
         if (!groupId) return;
 
-        const groupJournal = this.journal[groupId] || {};
-        const monthYear = this.currentJournalMonth.toISOString().substring(0, 7);
-        const monthlyAssessment = this.monthlyAssessments[groupId]?.[monthYear]?.[studentId] || { examScore: 0, bonusPoints: 0, finalGrade: 0 };
+        const group = this.groups.find(g => g.id === groupId);
+        if (!group || !group.schedule) return;
+
+        const monthlyWeeks = this.generateMonthlyJournal(group, this.currentJournalMonth);
+        const currentWeekData = monthlyWeeks[this.currentJournalWeek];
         
-        let totalGrades = 0;
-        
-        // Iterate through all dates in the current month for the group
-        for (const dateKey in groupJournal) {
-            // Ensure the date belongs to the current month
-            if (dateKey.startsWith(monthYear) && groupJournal[dateKey][studentId] && groupJournal[dateKey][studentId].grade) {
-                totalGrades += Number(groupJournal[dateKey][studentId].grade);
+        if (!currentWeekData) return;
+
+        let totalGradesForWeek = 0;
+        currentWeekData.forEach(day => {
+            if (day && day.hasLesson) {
+                const dateKey = day.date.toISOString().split('T')[0];
+                const studentDayData = (this.journal[groupId]?.[dateKey]?.[studentId]) || {};
+                if (studentDayData.grade && studentDayData.grade > 0) {
+                    totalGradesForWeek += Number(studentDayData.grade);
+                }
             }
-        }
+        });
+
+        const monthYear = this.currentJournalMonth.toISOString().substring(0, 7);
+        const monthlyAssessment = this.monthlyAssessments[groupId]?.[monthYear]?.[studentId] || { examScore: 0, bonusPoints: 0, finalGrade: 0, weeklyBonuses: {} };
+        const weeklyBonus = monthlyAssessment.weeklyBonuses?.[this.currentJournalWeek] || 0;
         
-        const bonus = monthlyAssessment.bonusPoints || 0;
-        const total = totalGrades + bonus; // Removed examScore from weekly total
+        const total = totalGradesForWeek + weeklyBonus;
         
         const totalCell = document.getElementById(`total-${studentId}`);
         if (totalCell) totalCell.textContent = total;
 
-        // Update the monthly summary if it's currently displayed
-        if (this.currentJournalView === 'month') {
-            const groupStudents = this.students.filter(s => s.group === groupId && s.status === 'active');
-            this.renderMonthlySummary(groupStudents, groupId, this.currentJournalMonth);
+        // No need to re-render monthly summary here, as this function is for weekly total
+    }
+
+    updateMonthlyStudentTotal(studentId) {
+        const groupId = this.currentJournalGroupId;
+        if (!groupId) return;
+
+        const monthYear = this.currentJournalMonth.toISOString().substring(0, 7); // YYYY-MM
+        const monthlyAssessment = this.monthlyAssessments[groupId]?.[monthYear]?.[studentId] || { examScore: 0, bonusPoints: 0, finalGrade: 0, weeklyBonuses: {} };
+        monthlyAssessment.weeklyBonuses = monthlyAssessment.weeklyBonuses || {}; // Ensure it's an object
+
+        let totalGradesForMonth = 0;
+        const groupJournal = this.journal[groupId] || {};
+        for (const dateKey in groupJournal) {
+            if (dateKey.startsWith(monthYear) && groupJournal[dateKey][studentId] && groupJournal[dateKey][studentId].grade) {
+                totalGradesForMonth += Number(groupJournal[dateKey][studentId].grade);
+            }
+        }
+
+        const totalMonthlyBonus = Object.values(monthlyAssessment.weeklyBonuses).reduce((sum, b) => sum + b, 0);
+        const totalSum = totalGradesForMonth + totalMonthlyBonus + monthlyAssessment.examScore;
+
+        // Find the specific monthly-summary-card for this student and update its total
+        // This assumes student names are unique enough or we need a more robust selector
+        const studentCard = document.querySelector(`#monthly-summary-grid .monthly-summary-card[data-student-id="${studentId}"]`);
+        if (studentCard) {
+            const totalGradeElement = studentCard.querySelector('.total-grade');
+            if (totalGradeElement) {
+                totalGradeElement.textContent = `Итог: ${totalSum}`;
+            }
         }
     }
 
@@ -1283,84 +1365,89 @@ class EduCRM {
             };
         });
 
-        // Destroy existing chart if it exists
-        if (this.gradesChart) {
-            this.gradesChart.destroy();
-        }
-
         // Adjust maxTotalScore to be a bit higher than the actual max for better visualization
         const yAxisMax = maxTotalScore > 0 ? Math.ceil(maxTotalScore / 5) * 5 + 5 : 10; // Ensure a reasonable max, e.g., multiple of 5, min 10
 
-        this.gradesChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: datasets
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'bottom',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 20,
-                            font: {
-                                size: 12
-                            }
-                        }
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        callbacks: {
-                            title: function(context) {
-                                return context[0].label;
-                            },
-                            label: function(context) {
-                                const studentName = context.dataset.label;
-                                const score = context.parsed.y;
-                                return `${studentName}: ${score}`;
-                            }
-                        }
-                    }
+        if (this.gradesChart) {
+            // Update existing chart data
+            this.gradesChart.data.labels = labels;
+            this.gradesChart.data.datasets = datasets;
+            this.gradesChart.options.scales.y.max = yAxisMax; // Update y-axis max
+            this.gradesChart.options.scales.y.ticks.stepSize = yAxisMax > 10 ? Math.ceil(yAxisMax / 10) : 1;
+            this.gradesChart.update();
+        } else {
+            // Create new chart if it doesn't exist
+            this.gradesChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
                 },
-                scales: {
-                    x: {
-                        title: {
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
                             display: true,
-                            text: 'Недели',
-                            color: '#333',
-                            font: {
-                                size: 14,
-                                weight: 'bold'
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                font: {
+                                    size: 12
+                                }
                             }
                         },
-                        grid: {
-                            display: false
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                title: function(context) {
+                                    return context[0].label;
+                                },
+                                label: function(context) {
+                                    const studentName = context.dataset.label;
+                                    const score = context.parsed.y;
+                                    return `${studentName}: ${score}`;
+                                }
+                            }
                         }
                     },
-                    y: {
-                        beginAtZero: true,
-                        max: yAxisMax, // Dynamically set max value
-                        title: {
-                            display: true,
-                            text: 'Итоговый балл',
-                            color: '#333',
-                            font: {
-                                size: 14,
-                                weight: 'bold'
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Недели',
+                                color: '#333',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                display: false
                             }
                         },
-                        ticks: {
-                            stepSize: yAxisMax > 10 ? Math.ceil(yAxisMax / 10) : 1 // Adjust step size based on max value
+                        y: {
+                            beginAtZero: true,
+                            max: yAxisMax, // Dynamically set max value
+                            title: {
+                                display: true,
+                                text: 'Итоговый балл',
+                                color: '#333',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                stepSize: yAxisMax > 10 ? Math.ceil(yAxisMax / 10) : 1 // Adjust step size based on max value
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
+        }
     }
 
     renderMonthlySummary(students, groupId, month) {
@@ -1369,8 +1456,15 @@ class EduCRM {
 
         const monthYear = month.toISOString().substring(0, 7); // YYYY-MM
 
+        if (students.length === 0) {
+            grid.innerHTML = '<p class="no-data">Нет активных студентов в этой группе для отображения ежемесячного отчета.</p>';
+            return;
+        }
+
         grid.innerHTML = students.map(student => {
-            const monthlyAssessment = this.monthlyAssessments[groupId]?.[monthYear]?.[student.id] || { examScore: 0, bonusPoints: 0, finalGrade: 0 };
+            const monthlyAssessment = this.monthlyAssessments[groupId]?.[monthYear]?.[student.id] || { examScore: 0, bonusPoints: 0, finalGrade: 0, weeklyBonuses: {} };
+            // Ensure weeklyBonuses is an object, even if monthlyAssessment exists but lacks the property
+            monthlyAssessment.weeklyBonuses = monthlyAssessment.weeklyBonuses || {};
             
             let totalGradesForMonth = 0;
             const groupJournal = this.journal[groupId] || {};
@@ -1380,10 +1474,13 @@ class EduCRM {
                 }
             }
 
-            const totalSum = totalGradesForMonth + monthlyAssessment.bonusPoints + monthlyAssessment.examScore;
+            // Sum all weekly bonuses for the monthly total
+            const totalMonthlyBonus = Object.values(monthlyAssessment.weeklyBonuses).reduce((sum, b) => sum + b, 0);
+
+            const totalSum = totalGradesForMonth + totalMonthlyBonus + monthlyAssessment.examScore;
 
             return `
-                <div class="monthly-summary-card animate-fade-in">
+                <div class="monthly-summary-card animate-fade-in" data-student-id="${student.id}">
                     <h4>${student.name} ${student.surname}</h4>
                     <div class="monthly-summary-item">
                         <span class="label">Баллы за занятия:</span>
@@ -1396,8 +1493,7 @@ class EduCRM {
                     </div>
                     <div class="monthly-summary-item">
                         <span class="label">Бонусные баллы:</span>
-                        <input type="number" min="0" max="10" value="${monthlyAssessment.bonusPoints || ''}"
-                               onchange="app.updateBonus('${groupId}', '${student.id}', this.value)">
+                        <span class="value">${totalMonthlyBonus}</span>
                     </div>
                     <div class="total-grade">Итог: ${totalSum}</div>
                 </div>
@@ -1932,70 +2028,59 @@ class EduCRM {
     // Student Analytics
     showStudentAnalytics(studentId) {
         this.currentStudentId = studentId;
-        this.switchSection('student-analytics');
+        this.switchSection('student-analytics'); // This will push 'student-analytics' to history
         this.renderStudentAnalytics();
+        document.querySelector('.back-button').style.display = 'inline-flex'; // Ensure back button is visible
     }
 
     renderStudentAnalytics() {
         const student = this.students.find(s => s.id === this.currentStudentId);
         if (!student) return;
-
+    
         const group = this.groups.find(g => g.id === student.group);
         const initials = `${student.name[0]}${student.surname[0]}`.toUpperCase();
-
+    
         document.getElementById('analytics-student-name').textContent = `${student.name} ${student.surname}`;
         document.getElementById('analytics-student-group').textContent = group ? group.name : 'Без группы';
-        
+    
         const avatarElement = document.getElementById('analytics-student-avatar');
         avatarElement.textContent = initials;
         avatarElement.style.background = student.avatarColor || this.getRandomColor();
         avatarElement.style.color = 'white';
-
-        let totalActualSessions = 0;
-        let attendedSessions = 0;
+    
+        const { attendedSessions, totalScheduledSessions } = this.calculateStudentAttendance(student.id);
+        const attendanceRate = totalScheduledSessions > 0 ? Math.round((attendedSessions / totalScheduledSessions) * 100) : 0;
+    
         let totalGrades = 0;
         let gradeCount = 0;
         const studentComments = [];
-
+    
         const studentGroup = this.groups.find(g => g.id === student.group);
         if (studentGroup) {
-            const groupSchedule = studentGroup.schedule || {};
             const studentJournal = this.journal[student.group] || {};
-
             for (const dateKey in studentJournal) {
-                const entryDate = new Date(dateKey);
-                const currentDayOfWeek = entryDate.getDay() === 0 ? 6 : entryDate.getDay() - 1;
-                const currentDayName = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'][currentDayOfWeek];
-
-                if (groupSchedule[currentDayName]) { // Only consider if a lesson was scheduled for that day
-                    const studentDayData = studentJournal[dateKey][student.id];
-                    if (studentDayData) {
-                        totalActualSessions++; // Count actual recorded sessions
-                        if (studentDayData.attendance) {
-                            attendedSessions++;
-                        }
-                        if (studentDayData.grade && studentDayData.grade > 0) {
-                            totalGrades += Number(studentDayData.grade);
-                            gradeCount++;
-                        }
-                        if (studentDayData.comment) {
-                            studentComments.push({
-                                date: dateKey,
-                                comment: studentDayData.comment,
-                                groupName: studentGroup.name
-                            });
-                        }
+                const studentDayData = studentJournal[dateKey][student.id];
+                if (studentDayData) {
+                    if (studentDayData.grade && studentDayData.grade > 0) {
+                        totalGrades += Number(studentDayData.grade);
+                        gradeCount++;
+                    }
+                    if (studentDayData.comment) {
+                        studentComments.push({
+                            date: dateKey,
+                            comment: studentDayData.comment,
+                            groupName: studentGroup.name
+                        });
                     }
                 }
             }
         }
-
-        const attendanceRate = totalAttendanceSessions > 0 ? Math.round((attendedAttendanceSessions / totalAttendanceSessions) * 100) : 0;
+    
         const averageGrade = gradeCount > 0 ? (totalGrades / gradeCount).toFixed(1) : 0;
-
+    
         this.animateNumber('analytics-attendance-rate', attendanceRate, '%');
         this.animateNumber('analytics-average-grade', averageGrade);
-
+    
         this.renderStudentGradesChart(student.id);
         this.renderStudentRecentComments(studentComments);
         lucide.createIcons();
@@ -2139,6 +2224,7 @@ class EduCRM {
         
         // Reset forms
         document.querySelectorAll('.modal form').forEach(form => form.reset());
+        this.updateBackButtonVisibility(); // Update back button visibility after closing modal
     }
 
     getRandomColor() {
@@ -2221,6 +2307,42 @@ class EduCRM {
         }
 
         doc.save(`${reportTitle}.pdf`);
+    }
+    applyTheme() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-theme');
+            document.getElementById('theme-toggle').checked = true;
+        } else {
+            document.body.classList.remove('dark-theme');
+            document.getElementById('theme-toggle').checked = false;
+        }
+    }
+
+    toggleTheme() {
+        document.body.classList.toggle('dark-theme');
+        if (document.body.classList.contains('dark-theme')) {
+            localStorage.setItem('theme', 'dark');
+        } else {
+            localStorage.setItem('theme', 'light');
+        }
+    }
+    goBack() {
+        if (this.navigationHistory.length > 1) {
+            this.navigationHistory.pop(); // Remove current section
+            const previousSection = this.navigationHistory[this.navigationHistory.length - 1];
+            this.switchSection(previousSection, false); // Switch without adding to history again
+        }
+        this.updateBackButtonVisibility();
+    }
+
+    updateBackButtonVisibility() {
+        const backButton = document.querySelector('.back-button');
+        if (this.navigationHistory.length > 1 && this.currentSection !== 'dashboard') {
+            backButton.style.display = 'inline-flex';
+        } else {
+            backButton.style.display = 'none';
+        }
     }
 }
 
