@@ -600,6 +600,9 @@ class EduCRM {
                             <button class="action-btn edit" onclick="app.editStudent('${student.id}')">
                                 <i data-lucide="edit"></i>
                             </button>
+                            <button class="action-btn delete" onclick="app.deleteStudent('${student.id}')">
+                                <i data-lucide="trash-2"></i>
+                            </button>
                             <button class="action-btn archive" onclick="app.toggleStudentStatus('${student.id}')">
                                 <i data-lucide="archive"></i>
                             </button>
@@ -699,6 +702,16 @@ class EduCRM {
         this.openStudentModal(id);
     }
 
+    async deleteStudent(id) {
+        if (!confirm('Вы уверены, что хотите удалить этого студента?')) {
+            return;
+        }
+        this.students = this.students.filter(s => s.id !== id);
+        await this.deleteFromDB('students', id);
+        this.renderStudents();
+        this.updateStats();
+    }
+
     async toggleStudentStatus(id) {
         const student = this.students.find(s => s.id === id);
         student.status = student.status === 'active' ? 'archived' : 'active';
@@ -732,9 +745,14 @@ class EduCRM {
                                 <div class="group-schedule">${scheduleText}</div>
                             </div>
                         </div>
-                        <button class="action-btn edit" onclick="app.editGroup('${group.id}')">
-                            <i data-lucide="edit"></i>
-                        </button>
+                        <div class="group-actions-header">
+                            <button class="action-btn edit" onclick="app.editGroup('${group.id}')">
+                                <i data-lucide="edit"></i>
+                            </button>
+                            <button class="action-btn delete" onclick="app.deleteGroup('${group.id}')">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="group-stats">
                         <div class="stat-item">
@@ -855,6 +873,25 @@ class EduCRM {
 
     editGroup(id) {
         this.openGroupModal(id);
+    }
+
+    async deleteGroup(id) {
+        if (!confirm('Вы уверены, что хотите удалить эту группу? Все студенты в этой группе будут откреплены.')) {
+            return;
+        }
+
+        // Unassign students from this group
+        this.students.forEach(student => {
+            if (student.group === id) {
+                student.group = ''; // Set group to empty string
+                this.saveToDB('students', student); // Save updated student
+            }
+        });
+
+        this.groups = this.groups.filter(g => g.id !== id);
+        await this.deleteFromDB('groups', id);
+        this.renderGroups();
+        this.updateStats();
     }
 
     openJournalForGroup(groupId) {

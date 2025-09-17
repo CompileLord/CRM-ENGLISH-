@@ -470,6 +470,11 @@ i[data-lucide] {
     color: var(--danger-color);
 }
 
+.action-btn.delete {
+    background: #FEE2E2;
+    color: var(--danger-color);
+}
+
 .action-btn:hover {
     opacity: 0.8;
 }
@@ -573,6 +578,11 @@ i[data-lucide] {
     align-items: center;
     justify-content: space-between;
     margin-bottom: 16px;
+}
+
+.group-actions-header {
+    display: flex;
+    gap: 8px;
 }
 
 .group-info {
