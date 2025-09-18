@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="modern.css">
+    <link rel="stylesheet" href="student-analytics-modern.css">
     <script src="node_modules_ignore_this_it_is_liberties/lucide.js"></script>
     <script src="node_modules_ignore_this_it_is_liberties/chart.js"></script>
     <script src="node_modules_ignore_this_it_is_liberties/jspdf.umd.min.js"></script>
@@ -40,6 +41,10 @@
                 <li class="nav-item" data-section="reports">
                     <i data-lucide="bar-chart-3"></i>
                     <span>Reports</span>
+                </li>
+                <li class="nav-item" data-section="analytics-overview">
+                    <i data-lucide="activity"></i>
+                    <span>Analytics</span>
                 </li>
                 <li class="nav-item" data-section="settings">
                     <i data-lucide="settings"></i>
@@ -151,6 +156,9 @@
                     <i data-lucide="search"></i>
                     <input type="text" id="student-search" placeholder="Search students...">
                 </div>
+                <select id="student-group-filter" class="filter-select">
+                    <option value="all">All Groups</option>
+                </select>
                 <select id="student-filter" class="filter-select">
                     <option value="all">All Students</option>
                     <option value="active">Active</option>
@@ -255,6 +263,27 @@
             </div>
         </section>
 
+<!-- Analytics Overview -->
+        <section id="analytics-overview" class="section">
+            <div class="section-controls">
+                <div class="search-box">
+                    <i data-lucide="search"></i>
+                    <input type="text" id="analytics-student-search" placeholder="Search students...">
+                </div>
+                <select id="analytics-student-group-filter" class="filter-select">
+                    <option value="all">All Groups</option>
+                </select>
+                <select id="analytics-student-filter" class="filter-select">
+                    <option value="all">All Students</option>
+                    <option value="active">Active</option>
+                    <option value="archived">Archived</option>
+                </select>
+            </div>
+            <div id="analytics-students-grid" class="students-grid">
+                <!-- Student profile cards will be loaded here -->
+            </div>
+        </section>
+
 <!-- Settings -->
         <section id="settings" class="section">
             <div class="settings-content">
@@ -303,92 +332,106 @@
 
 <!-- Student Analytics -->
         <section id="student-analytics" class="section">
-            <div class="analytics-grid">
-                <!-- Left Column -->
-                <div class="analytics-profile-column">
-                    <div class="student-profile-card">
-                        <div class="student-avatar-large" id="analytics-student-avatar"></div>
-                        <h2 id="analytics-student-name"></h2>
-                        <p id="analytics-student-group"></p>
-                        <div class="profile-contact-info" id="analytics-student-contact">
-                            <!-- Contact info will be dynamically added here -->
+            <div class="student-analytics-header">
+                <div class="student-analytics-avatar" id="analytics-student-avatar"></div>
+                <div class="student-analytics-info">
+                    <h2 id="analytics-student-name"></h2>
+                    <p id="analytics-student-group"></p>
+                    <div class="profile-contact-info" id="analytics-student-contact">
+                        <!-- Contact info will be dynamically added here -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="student-analytics-tabs">
+                <button class="analytics-tab-btn active" data-tab="overview">Overview</button>
+                <button class="analytics-tab-btn" data-tab="grades">Grade Dynamics</button>
+                <button class="analytics-tab-btn" data-tab="attendance">Attendance</button>
+            </div>
+
+            <div id="analytics-tab-overview" class="analytics-tab-content active">
+                <div class="analytics-overview-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <i data-lucide="calendar-check"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="analytics-attendance-rate">0%</h3>
+                            <p>Attendance</p>
                         </div>
                     </div>
-                    <div class="student-profile-card">
+                    <div class="stat-card">
+                        <div class="stat-icon red">
+                            <i data-lucide="calendar-x"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="analytics-missed-lessons">0</h3>
+                            <p>Missed Lessons</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon orange">
+                            <i data-lucide="clipboard-list"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="analytics-total-lessons">0</h3>
+                            <p>Total Lessons</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon purple">
+                            <i data-lucide="trophy"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="analytics-average-grade">0</h3>
+                            <p>Average Grade</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="details-grid" style="margin-top: 32px;">
+                    <div class="details-card">
                         <h3>Additional Information</h3>
                         <div id="analytics-student-details">
                             <!-- Additional student details like DOB, class will be added here -->
                         </div>
                     </div>
+                    <div class="details-card">
+                        <h3>Recent Comments</h3>
+                        <div id="analytics-recent-comments" class="comments-list"></div>
+                    </div>
                 </div>
+            </div>
 
-                <!-- Right Column -->
-                <div class="analytics-main-column">
-                    <div class="analytics-stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-icon blue">
-                                <i data-lucide="calendar-check"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 id="analytics-attendance-rate">0%</h3>
-                                <p>Attendance</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon red">
-                                <i data-lucide="calendar-x"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 id="analytics-missed-lessons">0</h3>
-                                <p>Missed Lessons</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon orange">
-                                <i data-lucide="clipboard-list"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 id="analytics-total-lessons">0</h3>
-                                <p>Total Lessons</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon purple">
-                                <i data-lucide="trophy"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 id="analytics-average-grade">0</h3>
-                                <p>Average Grade</p>
-                            </div>
-                        </div>
+            <div id="analytics-tab-grades" class="analytics-tab-content">
+                <div class="analytics-section-card">
+                    <h3>Grade Dynamics</h3>
+                    <div class="chart-container">
+                        <canvas id="studentGradesChart"></canvas>
                     </div>
-                    <div class="analytics-section-card">
-                        <h3>Grade Dynamics</h3>
-                        <div class="chart-container">
-                            <canvas id="studentGradesChart"></canvas>
-                        </div>
+                </div>
+                <div class="analytics-section-card" style="margin-top: 32px;">
+                    <h3>Weekly Scores</h3>
+                    <div class="weekly-scores-controls">
+                        <button class="btn btn-secondary btn-small" id="analytics-prev-month-btn">
+                            <i data-lucide="chevron-left"></i>
+                        </button>
+                        <span id="analytics-current-month-display" class="month-display"></span>
+                        <button class="btn btn-secondary btn-small" id="analytics-next-month-btn">
+                            <i data-lucide="chevron-right"></i>
+                        </button>
                     </div>
-                    <div class="analytics-grid-2-col">
-                        <div class="analytics-section-card">
-                            <h3>Recent Comments</h3>
-                            <div id="analytics-recent-comments" class="comments-list"></div>
-                        </div>
-                        <div class="analytics-section-card">
-                            <h3>Weekly Scores</h3>
-                            <div class="weekly-scores-controls">
-                                <button class="btn btn-secondary btn-small" id="analytics-prev-month-btn">
-                                    <i data-lucide="chevron-left"></i>
-                                </button>
-                                <span id="analytics-current-month-display" class="month-display"></span>
-                                <button class="btn btn-secondary btn-small" id="analytics-next-month-btn">
-                                    <i data-lucide="chevron-right"></i>
-                                </button>
-                            </div>
-                            <div class="chart-container">
-                                <canvas id="studentWeeklyScoresChart"></canvas>
-                            </div>
-                        </div>
+                    <div class="chart-container">
+                        <canvas id="studentWeeklyScoresChart"></canvas>
                     </div>
+                </div>
+            </div>
+
+            <div id="analytics-tab-attendance" class="analytics-tab-content">
+                <div class="analytics-section-card">
+                    <h3>Attendance Overview</h3>
+                    <p>Detailed attendance reports will go here.</p>
+                    <!-- Placeholder for future attendance chart/table -->
                 </div>
             </div>
         </section>

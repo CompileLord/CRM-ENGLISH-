@@ -429,16 +429,30 @@ i[data-lucide] {
 }
 
 .student-card {
-    background: var(--bg-card);
-    border-radius: var(--border-radius);
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: 20px; /* Consistent with other modern cards */
     padding: 24px;
-    box-shadow: var(--shadow-md);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: all 0.3s ease;
+    cursor: pointer; /* Indicate interactivity */
+    display: flex; /* Use flexbox for better layout control */
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 .student-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
+    transform: translateY(-5px); /* More pronounced lift effect */
+    box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.25); /* Stronger shadow on hover */
+}
+
+/* Dark theme adjustments for student cards */
+body.dark-theme .student-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
 }
 
 .student-header {
@@ -446,6 +460,7 @@ i[data-lucide] {
     align-items: center;
     justify-content: space-between;
     margin-bottom: 16px;
+    position: relative; /* For absolute positioning of actions */
 }
 
 .student-avatar, .student-avatar-img {
@@ -460,11 +475,28 @@ i[data-lucide] {
     font-weight: 600;
     font-size: 16px;
     object-fit: cover;
+    border: 2px solid var(--glass-border); /* Add a subtle border */
+    box-shadow: var(--shadow-sm); /* Add a small shadow */
 }
 
 .student-actions {
+    position: absolute; /* Position actions absolutely within the header */
+    top: 16px;
+    right: 16px;
     display: flex;
     gap: 8px;
+    background: var(--glass-bg); /* Add a subtle background for actions */
+    border-radius: 10px;
+    padding: 4px;
+    box-shadow: var(--shadow-sm);
+    opacity: 0; /* Hide by default */
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.student-card:hover .student-actions {
+    opacity: 1; /* Show on card hover */
+    visibility: visible;
 }
 
 .action-btn {
@@ -483,11 +515,13 @@ i[data-lucide] {
 .action-btn.edit {
     background: var(--primary-light);
     color: var(--primary-color);
+    box-shadow: var(--shadow-sm); /* Add shadow to action buttons */
 }
 
 .action-btn.archive {
     background: #FEE2E2;
     color: var(--danger-color);
+    box-shadow: var(--shadow-sm); /* Add shadow to action buttons */
 }
 
 .action-btn.delete {
@@ -522,16 +556,18 @@ i[data-lucide] {
 }
 
 .student-name {
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 20px; /* Slightly larger font size */
+    font-weight: 700; /* Bolder font weight */
     color: var(--text-primary);
     margin-bottom: 4px;
+    text-align: left; /* Align text to the left */
 }
 
 .student-group {
-    color: var(--text-muted);
-    font-size: 14px;
+    color: var(--text-secondary); /* Use secondary text color */
+    font-size: 15px; /* Slightly larger font size */
     margin-bottom: 16px;
+    text-align: left; /* Align text to the left */
 }
 
 .student-contact {

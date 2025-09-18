@@ -23,6 +23,7 @@ class EduCRM {
             language: 'en' // Default language
         };
         this.studentWeeklyScoresChart = null; // New chart instance for student weekly scores
+        this.currentAnalyticsTab = 'overview'; // Default active tab for student analytics
         
         this.translations = {
             en: {
@@ -33,6 +34,7 @@ class EduCRM {
                 groups: "Groups",
                 journal: "Journal",
                 reports: "Reports",
+                analytics: "Analytics",
                 settings: "Settings",
 
                 // Header
@@ -241,7 +243,10 @@ class EduCRM {
                 date: "Date",
                 totalScore: "Total Score",
                 weeks: "Weeks",
-                studentGrades: "Student Grades"
+                studentGrades: "Student Grades",
+                overviewTab: "Overview",
+                gradesTab: "Grade Dynamics",
+                attendanceTab: "Attendance"
             },
             ru: {
                 // Sidebar
@@ -478,6 +483,20 @@ class EduCRM {
         lucide.createIcons();
     }
 
+    initAnalyticsEventListeners() {
+        // Analytics tab switching
+        document.querySelectorAll('.analytics-tab-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const tab = e.target.dataset.tab;
+                this.switchAnalyticsTab(tab);
+            });
+        });
+
+        // Analytics month navigation (existing)
+        document.getElementById('analytics-prev-month-btn').addEventListener('click', () => this.prevAnalyticsMonth());
+        document.getElementById('analytics-next-month-btn').addEventListener('click', () => this.nextAnalyticsMonth());
+    }
+
     setLanguage(lang, save = true) {
         this.settings.language = lang;
         document.documentElement.lang = lang; // Update HTML lang attribute
@@ -514,6 +533,8 @@ class EduCRM {
         if (element) element.textContent = t.journal;
         element = document.querySelector('.nav-item[data-section="reports"] span');
         if (element) element.textContent = t.reports;
+        element = document.querySelector('.nav-item[data-section="analytics-overview"] span');
+        if (element) element.textContent = t.analytics;
         element = document.querySelector('.nav-item[data-section="settings"] span');
         if (element) element.textContent = t.settings;
 
@@ -550,6 +571,8 @@ class EduCRM {
         if (element) element.textContent = t.active;
         element = document.querySelector('#student-filter option[value="archived"]');
         if (element) element.textContent = t.archived;
+        element = document.querySelector('#student-group-filter option[value="all"]');
+        if (element) element.textContent = t.allGroups;
 
         // Groups Section
         element = document.getElementById('add-group-btn')?.querySelector('span');
@@ -712,22 +735,30 @@ class EduCRM {
         if (element) element.textContent = t.endDate;
 
         // Student Analytics
-        element = document.querySelector('#student-analytics .analytics-profile-column .student-profile-card:nth-child(2) h3');
+        element = document.querySelector('#analytics-tab-overview .details-card:nth-child(1) h3');
         if (element) element.textContent = t.additionalInfo;
-        element = document.querySelector('#student-analytics .analytics-stats-grid .stat-card:nth-child(1) p');
+        element = document.querySelector('#analytics-tab-overview .stat-card:nth-child(1) p');
         if (element) element.textContent = t.attendanceAnalytics;
-        element = document.querySelector('#student-analytics .analytics-stats-grid .stat-card:nth-child(2) p');
+        element = document.querySelector('#analytics-tab-overview .stat-card:nth-child(2) p');
         if (element) element.textContent = t.missedLessonsAnalytics;
-        element = document.querySelector('#student-analytics .analytics-stats-grid .stat-card:nth-child(3) p');
+        element = document.querySelector('#analytics-tab-overview .stat-card:nth-child(3) p');
         if (element) element.textContent = t.totalLessonsAnalytics;
-        element = document.querySelector('#student-analytics .analytics-stats-grid .stat-card:nth-child(4) p');
+        element = document.querySelector('#analytics-tab-overview .stat-card:nth-child(4) p');
         if (element) element.textContent = t.averageGradeAnalytics;
-        element = document.querySelector('#student-analytics .analytics-section-card:nth-child(1) h3');
+        element = document.querySelector('#analytics-tab-grades .analytics-section-card:nth-child(1) h3');
         if (element) element.textContent = t.gradeDynamics;
-        element = document.querySelector('#student-analytics .analytics-grid-2-col .analytics-section-card:nth-child(1) h3');
+        element = document.querySelector('#analytics-tab-overview .details-card:nth-child(2) h3');
         if (element) element.textContent = t.recentComments;
-        element = document.querySelector('#student-analytics .analytics-grid-2-col .analytics-section-card:nth-child(2) h3');
+        element = document.querySelector('#analytics-tab-grades .analytics-section-card:nth-child(2) h3');
         if (element) element.textContent = t.scoresByWeeks;
+
+        // New tab buttons
+        element = document.querySelector('.analytics-tab-btn[data-tab="overview"]');
+        if (element) element.textContent = t.overviewTab;
+        element = document.querySelector('.analytics-tab-btn[data-tab="grades"]');
+        if (element) element.textContent = t.gradesTab;
+        element = document.querySelector('.analytics-tab-btn[data-tab="attendance"]');
+        if (element) element.textContent = t.attendanceTab;
     }
 
     // IndexedDB functions
@@ -951,9 +982,15 @@ class EduCRM {
 
         // Students
         document.getElementById('add-student-btn').addEventListener('click', () => this.openStudentModal());
-        document.getElementById('student-search').addEventListener('input', (e) => this.filterStudents(e.target.value));
-        document.getElementById('student-filter').addEventListener('change', (e) => this.filterStudentsByStatus(e.target.value));
+        document.getElementById('student-search').addEventListener('input', () => this.applyStudentFiltersAndSort());
+        document.getElementById('student-filter').addEventListener('change', () => this.applyStudentFiltersAndSort());
+        document.getElementById('student-group-filter').addEventListener('change', () => this.applyStudentFiltersAndSort());
         document.getElementById('student-form').addEventListener('submit', (e) => this.saveStudent(e));
+
+        // Analytics Overview
+        document.getElementById('analytics-student-search').addEventListener('input', () => this.applyAnalyticsStudentFiltersAndSort());
+        document.getElementById('analytics-student-filter').addEventListener('change', () => this.applyAnalyticsStudentFiltersAndSort());
+        document.getElementById('analytics-student-group-filter').addEventListener('change', () => this.applyAnalyticsStudentFiltersAndSort());
 
         // Groups
         document.getElementById('add-group-btn').addEventListener('click', () => this.openGroupModal());
@@ -1093,6 +1130,7 @@ class EduCRM {
             groups: [t.groups, 'Group Management'],
             journal: [t.journal, 'Attendance and Grade Journal'],
             reports: [t.reports, 'Report Generation'],
+            'analytics-overview': [t.analytics, 'Student Analytics Overview'],
             settings: [t.settings, 'System Settings'],
             'student-analytics': [t.studentAnalytics, t.detailedPerformanceOverview] // Add title for student analytics
         };
@@ -1130,6 +1168,9 @@ class EduCRM {
                 break;
             case 'student-analytics':
                 // Handled by showStudentAnalytics, no direct render here
+                break;
+            case 'analytics-overview':
+                this.renderAnalyticsOverview();
                 break;
         }
         // Hide back button if on dashboard
@@ -1498,21 +1539,121 @@ class EduCRM {
 
     // Students
     renderStudents() {
-        this.populateGroupSelect();
-        this.displayStudents(this.students);
+        this.populateStudentGroupFilter(); // Populate the new group filter
+        this.populateGroupSelect(); // Populate the student modal group select
+        this.applyStudentFiltersAndSort(); // Apply filters and sort
+    }
+
+    // Analytics Overview
+    renderAnalyticsOverview() {
+        this.populateAnalyticsStudentGroupFilter();
+        this.applyAnalyticsStudentFiltersAndSort();
+    }
+
+    populateStudentGroupFilter() {
+        const select = document.getElementById('student-group-filter');
+        if (!select) return;
+
+        const t = this.translations[this.settings.language];
+        select.innerHTML = `<option value="all">${t.allGroups}</option>` +
+            this.groups.map(group => `<option value="${group.id}">${group.name}</option>`).join('');
+    }
+
+    populateAnalyticsStudentGroupFilter() {
+        const select = document.getElementById('analytics-student-group-filter');
+        if (!select) return;
+
+        const t = this.translations[this.settings.language];
+        select.innerHTML = `<option value="all">${t.allGroups}</option>` +
+            this.groups.map(group => `<option value="${group.id}">${group.name}</option>`).join('');
     }
 
     populateGroupSelect() {
         const select = document.getElementById('student-group');
         if (!select) return;
 
-        select.innerHTML = '<option value="">Выберите группу</option>' +
+        const t = this.translations[this.settings.language];
+        select.innerHTML = `<option value="">${t.selectGroup}</option>` +
             this.groups.map(group => `<option value="${group.id}">${group.name}</option>`).join('');
     }
 
-    displayStudents(students) {
+    applyStudentFiltersAndSort() {
+        const searchTerm = document.getElementById('student-search')?.value.toLowerCase() || '';
+        const statusFilter = document.getElementById('student-filter')?.value || 'all';
+        const groupFilter = document.getElementById('student-group-filter')?.value || 'all';
+
+        let filteredStudents = this.students;
+
+        // Apply search term filter
+        if (searchTerm) {
+            filteredStudents = filteredStudents.filter(student =>
+                student.name.toLowerCase().includes(searchTerm) ||
+                student.surname.toLowerCase().includes(searchTerm)
+            );
+        }
+
+        // Apply status filter
+        if (statusFilter !== 'all') {
+            filteredStudents = filteredStudents.filter(s => s.status === statusFilter);
+        }
+
+        // Apply group filter
+        if (groupFilter !== 'all') {
+            filteredStudents = filteredStudents.filter(s => s.group === groupFilter);
+        }
+
+        // Sort alphabetically by surname, then by name
+        filteredStudents.sort((a, b) => {
+            const nameA = `${a.surname} ${a.name}`.toLowerCase();
+            const nameB = `${b.surname} ${b.name}`.toLowerCase();
+            if (nameA < nameB) return -1;
+            if (nameA > nameB) return 1;
+            return 0;
+        });
+
+        this.displayStudents(filteredStudents, 'students-grid');
+    }
+
+    applyAnalyticsStudentFiltersAndSort() {
+        const searchTerm = document.getElementById('analytics-student-search')?.value.toLowerCase() || '';
+        const statusFilter = document.getElementById('analytics-student-filter')?.value || 'all';
+        const groupFilter = document.getElementById('analytics-student-group-filter')?.value || 'all';
+
+        let filteredStudents = this.students;
+
+        // Apply search term filter
+        if (searchTerm) {
+            filteredStudents = filteredStudents.filter(student =>
+                student.name.toLowerCase().includes(searchTerm) ||
+                student.surname.toLowerCase().includes(searchTerm)
+            );
+        }
+
+        // Apply status filter
+        if (statusFilter !== 'all') {
+            filteredStudents = filteredStudents.filter(s => s.status === statusFilter);
+        }
+
+        // Apply group filter
+        if (groupFilter !== 'all') {
+            filteredStudents = filteredStudents.filter(s => s.group === groupFilter);
+        }
+
+        // Sort alphabetically by surname, then by name
+        filteredStudents.sort((a, b) => {
+            const nameA = `${a.surname} ${a.name}`.toLowerCase();
+            const nameB = `${b.surname} ${b.name}`.toLowerCase();
+            if (nameA < nameB) return -1;
+            if (nameA > nameB) return 1;
+            return 0;
+        });
+
+        this.displayStudents(filteredStudents, 'analytics-students-grid', true);
+    }
+
+    displayStudents(students, gridId, isAnalytics = false) {
         const t = this.translations[this.settings.language];
-        const grid = document.getElementById('students-grid');
+        const grid = document.getElementById(gridId);
         if (!grid) return;
 
         grid.innerHTML = students.map(student => {
@@ -1520,8 +1661,6 @@ class EduCRM {
             const initials = `${student.name[0]}${student.surname[0]}`.toUpperCase();
             const avatarColor = student.avatarColor || this.getRandomColor(); // Use existing color or generate new
             // Store the generated color if it's new, so it persists across renders
-            // Store the generated color if it's new, so it persists across renders
-            // This logic is now less critical as avatar will take precedence, but kept for consistency
             if (!student.avatarColor && !student.avatar) {
                 student.avatarColor = avatarColor;
                 this.saveToDB('students', student); // Persist the color
@@ -1531,23 +1670,27 @@ class EduCRM {
                 ? `<img src="${student.avatar}" alt="Student Avatar" class="student-avatar-img">`
                 : `<div class="student-avatar" style="background: ${avatarColor}; color: white;">${initials}</div>`;
 
+            const actionsHtml = isAnalytics ? '' : `
+                <div class="student-actions">
+                    <button class="action-btn edit" onclick="app.editStudent('${student.id}')">
+                        <i data-lucide="edit"></i>
+                    </button>
+                    <button class="action-btn delete" onclick="app.deleteStudent('${student.id}')">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                    <button class="action-btn archive" onclick="app.toggleStudentStatus('${student.id}')">
+                        <i data-lucide="archive"></i>
+                    </button>
+                </div>
+            `;
+
             return `
-                <div class="student-card animate-fade-in">
+                <div class="student-card animate-fade-in" onclick="app.showStudentAnalytics('${student.id}')">
                     <div class="student-header">
                         ${avatarHtml}
-                        <div class="student-actions">
-                            <button class="action-btn edit" onclick="app.editStudent('${student.id}')">
-                                <i data-lucide="edit"></i>
-                            </button>
-                            <button class="action-btn delete" onclick="app.deleteStudent('${student.id}')">
-                                <i data-lucide="trash-2"></i>
-                            </button>
-                            <button class="action-btn archive" onclick="app.toggleStudentStatus('${student.id}')">
-                                <i data-lucide="archive"></i>
-                            </button>
-                        </div>
+                        ${actionsHtml}
                     </div>
-                    <div class="student-name" onclick="app.showStudentAnalytics('${student.id}')">${student.name} ${student.surname}</div>
+                    <div class="student-name">${student.name} ${student.surname}</div>
                     <div class="student-group">${group ? group.name : t.noGroup} ${student.classNumber ? `(${student.classNumber}${student.classLetter})` : ''}</div>
                     <div class="student-contact">
                         ${student.dob ? `
@@ -1571,19 +1714,6 @@ class EduCRM {
         }).join('');
 
         lucide.createIcons();
-    }
-
-    filterStudents(searchTerm) {
-        const filtered = this.students.filter(student => 
-            student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            student.surname.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-        this.displayStudents(filtered);
-    }
-
-    filterStudentsByStatus(status) {
-        const filtered = status === 'all' ? this.students : this.students.filter(s => s.status === status);
-        this.displayStudents(filtered);
     }
 
     openStudentModal(studentId = null) {
@@ -3159,6 +3289,27 @@ class EduCRM {
         document.querySelector('.back-button').style.display = 'inline-flex'; // Ensure back button is visible
     }
 
+    switchAnalyticsTab(tabName) {
+        this.currentAnalyticsTab = tabName;
+
+        // Update active button state
+        document.querySelectorAll('.analytics-tab-btn').forEach(button => {
+            button.classList.toggle('active', button.dataset.tab === tabName);
+        });
+
+        // Show/hide tab content
+        document.querySelectorAll('.analytics-tab-content').forEach(content => {
+            content.classList.toggle('active', content.id === `analytics-tab-${tabName}`);
+        });
+
+        // Re-render charts if they are in the newly active tab
+        if (tabName === 'grades') {
+            this.renderStudentGradesChart(this.currentStudentId);
+            this.renderStudentWeeklyScoresChart(this.currentStudentId, this.currentAnalyticsMonth);
+        }
+        // Add other tab-specific rendering if needed
+    }
+
     renderStudentAnalytics() {
         const t = this.translations[this.settings.language];
         const student = this.students.find(s => s.id === this.currentStudentId);
@@ -3231,89 +3382,26 @@ class EduCRM {
         this.animateNumber('analytics-total-lessons', totalScheduledSessions);
         this.animateNumber('analytics-average-grade', averageGrade);
     
-        this.renderStudentGradesChart(student.id);
         this.renderStudentRecentComments(studentComments);
         
         // Initialize current month for analytics weekly scores
         this.currentAnalyticsMonth = new Date();
-        this.renderStudentWeeklyScores(student.id, this.currentAnalyticsMonth);
-        this.renderStudentWeeklyScoresChart(student.id, this.currentAnalyticsMonth);
+        // this.renderStudentWeeklyScores(student.id, this.currentAnalyticsMonth); // This is now part of the grades tab
+        // this.renderStudentWeeklyScoresChart(student.id, this.currentAnalyticsMonth); // This is now part of the grades tab
 
-        lucide.createIcons();
-    }
-
-    renderStudentWeeklyScores(studentId, month) {
-        const t = this.translations[this.settings.language];
-        const container = document.getElementById('analytics-weekly-scores');
-        const monthDisplay = document.getElementById('analytics-current-month-display');
-        if (!container || !monthDisplay) return;
-
-        const locale = this.settings.language === 'ru' ? 'ru-RU' : 'en-US';
-        monthDisplay.textContent = month.toLocaleString(locale, { month: 'long', year: 'numeric' });
-
-        const student = this.students.find(s => s.id === studentId);
-        if (!student || !student.group) {
-            container.innerHTML = `<p class="no-data">${t.noGroupAttached}</p>`;
-            return;
-        }
-
-        const group = this.groups.find(g => g.id === student.group);
-        if (!group || !group.schedule) {
-            container.innerHTML = `<p class="no-data">${t.noScheduleForStudentGroup}</p>`;
-            return;
-        }
-
-        const monthlyWeeks = this.generateMonthlyJournal(group, month);
-        const monthYear = month.toISOString().substring(0, 7);
-
-        if (monthlyWeeks.length === 0) {
-            container.innerHTML = `<p class="no-data">${t.noLessonDataForMonth}</p>`;
-            return;
-        }
-
-        container.innerHTML = monthlyWeeks.map((weekData, weekIndex) => {
-            let weekTotalGrade = 0;
-            let hasLessonInWeek = false;
-
-            weekData.forEach(day => {
-                if (day && day.hasLesson) {
-                    hasLessonInWeek = true;
-                    const dateKey = day.date.toISOString().split('T')[0];
-                    const studentDayData = (this.journal[group.id]?.[dateKey]?.[student.id]) || {};
-                    if (studentDayData.grade && studentDayData.grade > 0) {
-                        weekTotalGrade += Number(studentDayData.grade);
-                    }
-                }
-            });
-
-            const monthlyAssessment = this.monthlyAssessments[group.id]?.[monthYear]?.[student.id] || { weeklyBonuses: {} };
-            const weeklyBonus = monthlyAssessment.weeklyBonuses?.[weekIndex] || 0;
-            const totalScore = weekTotalGrade + weeklyBonus;
-
-            if (!hasLessonInWeek) {
-                return ''; // Don't display weeks without scheduled lessons
-            }
-
-            return `
-                <div class="weekly-score-item">
-                    <span class="week-label">${t.weekLabel} ${weekIndex + 1}:</span>
-                    <span class="score-value">${totalScore} ${t.scores}</span>
-                </div>
-            `;
-        }).join('');
+        // Activate the default tab
+        this.switchAnalyticsTab(this.currentAnalyticsTab);
 
         lucide.createIcons();
     }
 
     prevAnalyticsMonth() {
         this.currentAnalyticsMonth.setMonth(this.currentAnalyticsMonth.getMonth() - 1);
-        this.renderStudentWeeklyScores(this.currentStudentId, this.currentAnalyticsMonth);
         this.renderStudentWeeklyScoresChart(this.currentStudentId, this.currentAnalyticsMonth);
     }
 
     nextAnalyticsMonth() {
         this.currentAnalyticsMonth.setMonth(this.currentAnalyticsMonth.getMonth() + 1);
-        this.renderStudentWeeklyScores(this.currentStudentId, this.currentAnalyticsMonth);
         this.renderStudentWeeklyScoresChart(this.currentStudentId, this.currentAnalyticsMonth);
     }
 
@@ -3521,12 +3609,6 @@ class EduCRM {
                 }
             });
         }
-    }
-
-    // Event listeners for analytics month navigation
-    initAnalyticsEventListeners() {
-        document.getElementById('analytics-prev-month-btn').addEventListener('click', () => this.prevAnalyticsMonth());
-        document.getElementById('analytics-next-month-btn').addEventListener('click', () => this.nextAnalyticsMonth());
     }
 
     // Modal functions
