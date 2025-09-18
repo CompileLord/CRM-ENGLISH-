@@ -218,6 +218,7 @@ i[data-lucide] {
 .stat-icon.green { background: var(--success-color); }
 .stat-icon.orange { background: var(--warning-color); }
 .stat-icon.purple { background: #6f42c1; }
+.stat-icon.red { background: var(--danger-color); }
 
 .stat-content h3 {
     font-size: 28px;
@@ -270,6 +271,24 @@ i[data-lucide] {
     margin-bottom: 20px;
     color: var(--text-primary);
     font-weight: 600;
+}
+
+.news-feed-container {
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: 24px;
+    box-shadow: var(--shadow-md);
+}
+
+.news-feed-container h3 {
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.news-item.warning {
+    background-color: var(--warning-color);
+    color: white;
 }
 
 .activity-list {
@@ -429,7 +448,7 @@ i[data-lucide] {
     margin-bottom: 16px;
 }
 
-.student-avatar {
+.student-avatar, .student-avatar-img {
     width: 48px;
     height: 48px;
     border-radius: 50%;
@@ -440,6 +459,7 @@ i[data-lucide] {
     justify-content: center;
     font-weight: 600;
     font-size: 16px;
+    object-fit: cover;
 }
 
 .student-actions {
@@ -529,6 +549,62 @@ i[data-lucide] {
     color: var(--text-muted);
 }
 
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    color: var(--text-secondary);
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--border-color);
+}
+
+.detail-item:last-child {
+    border-bottom: none;
+}
+
+.detail-item strong {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.comment-item {
+    background: var(--bg-main);
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+}
+
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.comment-group {
+    font-weight: 600;
+    color: var(--primary-color);
+    font-size: 14px;
+}
+
+.comment-date {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.comment-text {
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
 .contact-item i {
     width: 16px;
     height: 16px;
@@ -591,10 +667,17 @@ i[data-lucide] {
     gap: 12px;
 }
 
-.group-color {
-    width: 16px;
-    height: 16px;
-    border-radius: 6px;
+.group-avatar, .group-avatar-img {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 16px;
+    object-fit: cover;
+    flex-shrink: 0;
 }
 
 .group-details h3 {
@@ -1274,6 +1357,144 @@ i[data-lucide] {
     font-size: 14px;
 }
 
+/* Student Analytics Section */
+.analytics-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 32px;
+}
+
+.analytics-profile-column {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.student-profile-card {
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: 24px;
+    text-align: center;
+    box-shadow: var(--shadow-md);
+}
+
+.student-avatar-large {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    font-weight: 600;
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.student-avatar-large img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.student-profile-card h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.student-profile-card p {
+    color: var(--text-muted);
+    margin-bottom: 16px;
+}
+
+.analytics-main-column {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.analytics-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 32px;
+}
+
+.analytics-section-card {
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: 24px;
+    box-shadow: var(--shadow-md);
+}
+
+.analytics-section-card h3 {
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.profile-contact-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.profile-contact-info .contact-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.profile-contact-info .contact-item i {
+    width: 16px;
+    height: 16px;
+    color: var(--text-muted);
+}
+
+/* Avatar Upload Styling */
+.avatar-upload-group {
+    grid-column: 1 / -1; /* Span full width in grid */
+}
+
+.avatar-upload-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 8px;
+}
+
+.avatar-preview {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--bg-main);
+    border: 2px dashed var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-upload-input {
+    display: none;
+}
+
+.avatar-upload-label {
+    cursor: pointer;
+}
+
 /* Animation */
 @keyframes fadeInUp {
     from {
@@ -1408,5 +1629,23 @@ i[data-lucide] {
     .report-content {
         max-height: none;
         overflow: visible;
+    }
+}
+
+/* Student Analytics specific layout adjustments */
+.analytics-grid-2-col {
+    display: grid;
+    grid-template-columns: 1fr 3fr; /* 1/3 ratio: comments (1 part), weekly scores graph (3 parts) */
+    gap: 32px;
+    margin-bottom: 32px;
+}
+
+/* Responsive adjustments for analytics */
+@media (max-width: 1024px) {
+    .analytics-grid {
+        grid-template-columns: 1fr; /* Stack columns on smaller screens */
+    }
+    .analytics-grid-2-col {
+        grid-template-columns: 1fr; /* Stack comments and graph on smaller screens */
     }
 }

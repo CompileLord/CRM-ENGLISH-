@@ -301,3 +301,49 @@ body.dark-theme .dark-icon {
 .header-right{
     align-items: center;
 }
+
+/* Student Analytics specific styles */
+.analytics-grid {
+    grid-template-columns: 300px 1fr; /* Keep existing for now, will refine in style.css */
+    gap: 32px;
+}
+
+.student-profile-card, .analytics-section-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: 20px; /* Consistent with header */
+    padding: 24px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.analytics-stats-grid .stat-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: 20px; /* Consistent with other cards */
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.3s ease;
+}
+
+.analytics-stats-grid .stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.25);
+}
+
+/* Dark theme adjustments for analytics cards */
+body.dark-theme .student-profile-card,
+body.dark-theme .analytics-section-card,
+body.dark-theme .analytics-stats-grid .stat-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+}

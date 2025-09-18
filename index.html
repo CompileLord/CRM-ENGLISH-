@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EduCRM - Система управления обучением</title>
+    <title>EduCRM - Learning Management System</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="modern.css">
@@ -13,7 +13,7 @@
     <script src="node_modules_ignore_this_it_is_liberties/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
-    <!-- Боковая панель -->
+<!-- Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
             <i data-lucide="graduation-cap"></i>
@@ -23,27 +23,27 @@
             <ul>
                 <li class="nav-item active" data-section="dashboard">
                     <i data-lucide="layout-dashboard"></i>
-                    <span>Дашборд</span>
+                    <span>Dashboard</span>
                 </li>
                 <li class="nav-item" data-section="students">
                     <i data-lucide="users"></i>
-                    <span>Студенты</span>
+                    <span>Students</span>
                 </li>
                 <li class="nav-item" data-section="groups">
                     <i data-lucide="users-2"></i>
-                    <span>Группы</span>
+                    <span>Groups</span>
                 </li>
                 <li class="nav-item" data-section="journal">
                     <i data-lucide="clipboard-list"></i>
-                    <span>Журнал</span>
+                    <span>Journal</span>
                 </li>
                 <li class="nav-item" data-section="reports">
                     <i data-lucide="bar-chart-3"></i>
-                    <span>Отчеты</span>
+                    <span>Reports</span>
                 </li>
                 <li class="nav-item" data-section="settings">
                     <i data-lucide="settings"></i>
-                    <span>Настройки</span>
+                    <span>Settings</span>
                 </li>
             </ul>
         </nav>
@@ -57,18 +57,18 @@
         </div>
     </aside>
 
-    <!-- Основной контент -->
+<!-- Main Content -->
     <main class="main-content">
-        <!-- Шапка -->
+<!-- Header -->
         <header class="header">
             <div class="header-left">
                 <button class="back-button" style="display: none;">
                     <i data-lucide="arrow-left"></i>
-                    <span>Назад</span>
+                    <span>Back</span>
                 </button>
                 <div>
-                    <h1 id="page-title">Дашборд</h1>
-                    <p id="page-subtitle">Обзор системы управления обучением</p>
+                    <h1 id="page-title">Dashboard</h1>
+                    <p id="page-subtitle">Learning Management System Overview</p>
                 </div>
             </div>
             <div class="header-right">
@@ -78,12 +78,12 @@
                 </div>
                 <div class="user-info">
                     <i data-lucide="user"></i>
-                    <span>Администратор</span>
+                    <span>Administrator</span>
                 </div>
             </div>
         </header>
 
-        <!-- Дашборд -->
+<!-- Dashboard -->
         <section id="dashboard" class="section active">
             <div class="stats-grid">
                 <div class="stat-card">
@@ -92,7 +92,7 @@
                     </div>
                     <div class="stat-content">
                         <h3 id="total-students">0</h3>
-                        <p>Всего студентов</p>
+                        <p>Total Students</p>
                     </div>
                 </div>
                 <div class="stat-card">
@@ -101,7 +101,7 @@
                     </div>
                     <div class="stat-content">
                         <h3 id="active-groups">0</h3>
-                        <p>Активных групп</p>
+                        <p>Active Groups</p>
                     </div>
                 </div>
                 <div class="stat-card">
@@ -110,7 +110,7 @@
                     </div>
                     <div class="stat-content">
                         <h3 id="attendance-rate">0%</h3>
-                        <p>Средняя посещаемость</p>
+                        <p>Average Attendance</p>
                     </div>
                 </div>
                 <div class="stat-card">
@@ -119,66 +119,70 @@
                     </div>
                     <div class="stat-content">
                         <h3 id="average-grade">0</h3>
-                        <p>Средний балл</p>
+                        <p>Average Grade</p>
                     </div>
                 </div>
             </div>
 
             <div class="dashboard-content">
                 <div class="chart-container">
-                    <h3>Активность за неделю</h3>
+                    <h3>t.weeklyActivity</h3>
                     <canvas id="weeklyChart"></canvas>
                 </div>
                 <div class="activity-container">
-                    <h3>Последние действия</h3>
+                    <h3>t.recentActivities</h3>
                     <div id="recent-activities" class="activity-list"></div>
+                </div>
+                <div class="news-feed-container">
+                    <h3>t.newsFeed</h3>
+                    <div id="news-feed" class="activity-list"></div>
                 </div>
             </div>
         </section>
 
-        <!-- Студенты -->
+<!-- Students -->
         <section id="students" class="section">
             <div class="section-controls">
                 <button class="btn btn-primary" id="add-student-btn">
                     <i data-lucide="plus"></i>
-                    Добавить студента
+                    Add Student
                 </button>
                 <div class="search-box">
                     <i data-lucide="search"></i>
-                    <input type="text" id="student-search" placeholder="Поиск студентов...">
+                    <input type="text" id="student-search" placeholder="Search students...">
                 </div>
                 <select id="student-filter" class="filter-select">
-                    <option value="all">Все студенты</option>
-                    <option value="active">Активные</option>
-                    <option value="archived">Архив</option>
+                    <option value="all">All Students</option>
+                    <option value="active">Active</option>
+                    <option value="archived">Archived</option>
                 </select>
             </div>
             <div id="students-grid" class="students-grid"></div>
         </section>
 
-        <!-- Группы -->
+<!-- Groups -->
         <section id="groups" class="section">
             <div class="section-controls">
                 <button class="btn btn-primary" id="add-group-btn">
                     <i data-lucide="plus"></i>
-                    Создать группу
+                    Create Group
                 </button>
             </div>
             <div id="groups-grid" class="groups-grid"></div>
         </section>
 
-        <!-- Журнал -->
+<!-- Journal -->
         <section id="journal" class="section">
             <div class="journal-controls">
                 <select id="group-select" class="filter-select">
-                    <option value="">Выберите группу</option>
+                    <option value="">Select Group</option>
                 </select>
                 <div class="journal-navigation-controls">
                     <div class="month-navigation">
                         <button class="btn btn-secondary btn-small" id="prev-month-btn">
                             <i data-lucide="chevron-left"></i>
                         </button>
-                        <span id="current-month-display" class="month-display">Сентябрь 2025</span>
+                        <span id="current-month-display" class="month-display">September 2025</span>
                         <button class="btn btn-secondary btn-small" id="next-month-btn">
                             <i data-lucide="chevron-right"></i>
                         </button>
@@ -187,23 +191,23 @@
                         <button class="btn btn-secondary btn-small" id="prev-week-btn">
                             <i data-lucide="chevron-left"></i>
                         </button>
-                        <span id="current-week-display" class="week-display">Неделя 1</span>
+                        <span id="current-week-display" class="week-display">Week 1</span>
                         <button class="btn btn-secondary btn-small" id="next-week-btn">
                             <i data-lucide="chevron-right"></i>
                         </button>
                     </div>
-                    <button class="btn btn-secondary" id="toggle-view-btn">Неделя</button>
+                    <button class="btn btn-secondary" id="toggle-view-btn">Week</button>
                 </div>
             </div>
             <div class="journal-content">
                 <div class="journal-view-container" id="weekly-journal-view" style="display: none;">
                     <div class="chart-container">
-                        <h3>Средний балл студентов</h3>
+                        <h3>Average Student Grade</h3>
                         <canvas id="gradesChart"></canvas>
                     </div>
-                    <div class="journal-table-container">
-                        <table id="journal-table" class="journal-table">
-                            <thead>
+                        <div class="journal-table-container">
+                            <table id="journal-table" class="journal-table">
+                                <thead>
                                 <!-- Header will be dynamically generated by JavaScript -->
                             </thead>
                             <tbody id="journal-tbody"></tbody>
@@ -212,56 +216,56 @@
                 </div>
                 <div class="journal-view-container" id="monthly-summary-view">
                     <div class="monthly-summary-container">
-                        <h3>Ежемесячный сводный отчет</h3>
-                        <div id="monthly-summary-grid" class="monthly-summary-grid">
-                            <!-- Monthly summary content will be dynamically generated here -->
+                        <h3>Monthly Summary Report</h3>
+                            <div id="monthly-summary-grid" class="monthly-summary-grid">
+                                <!-- Monthly summary content will be dynamically generated here -->
+                            </div>
                         </div>
-                    </div>
                 </div>
             </div>
         </section>
                                                 
-        <!-- Отчеты -->
+<!-- Reports -->
         <section id="reports" class="section">
             <div class="reports-grid">
                 <div class="report-card">
                     <div class="report-icon">
                         <i data-lucide="clipboard-list"></i>
                     </div>
-                    <h3>Отчет по посещаемости</h3>
-                    <p>Детальная статистика посещений по группам и студентам</p>
-                    <button class="btn btn-secondary" data-report="attendance">Сгенерировать</button>
+                    <h3>Attendance Report</h3>
+                    <p>Detailed attendance statistics by groups and students</p>
+                    <button class="btn btn-secondary" data-report="attendance">Generate</button>
                 </div>
                 <div class="report-card">
                     <div class="report-icon">
                         <i data-lucide="award"></i>
                     </div>
-                    <h3>Успеваемость студентов</h3>
-                    <p>Анализ оценок и академической успешности</p>
-                    <button class="btn btn-secondary" data-report="grades">Сгенерировать</button>
+                    <h3>Student Performance</h3>
+                    <p>Analysis of grades and academic performance</p>
+                    <button class="btn btn-secondary" data-report="grades">Generate</button>
                 </div>
                 <div class="report-card">
                     <div class="report-icon">
                         <i data-lucide="activity"></i>
                     </div>
-                    <h3>Активность групп</h3>
-                    <p>Обзор активности и вовлеченности групп</p>
-                    <button class="btn btn-secondary" data-report="activity">Сгенерировать</button>
+                    <h3>Group Activity</h3>
+                    <p>Overview of group activity and engagement</p>
+                    <button class="btn btn-secondary" data-report="activity">Generate</button>
                 </div>
             </div>
         </section>
 
-        <!-- Настройки -->
+<!-- Settings -->
         <section id="settings" class="section">
             <div class="settings-content">
                 <div class="settings-group">
-                    <h3>Общие настройки</h3>
+                    <h3>General Settings</h3>
                     <div class="form-group">
-                        <label for="institution-name">Название учебного заведения</label>
+                        <label for="institution-name">Institution Name</label>
                         <input type="text" id="institution-name" class="form-control">
                     </div>
                     <div class="form-group">
-                        <label for="academic-year">Учебный год</label>
+                        <label for="academic-year">Academic Year</label>
                         <select id="academic-year" class="form-control">
                             <option value="2024-2025">2024-2025</option>
                             <option value="2023-2024">2023-2024</option>
@@ -270,75 +274,131 @@
                     </div>
                 </div>
                 <div class="settings-group">
-                    <h3>Система оценок</h3>
+                    <h3>Grading System</h3>
                     <div class="form-group">
-                        <label for="max-grade">Максимальный балл за занятие</label>
+                        <label for="max-grade">Maximum Grade per Lesson</label>
                         <input type="number" id="max-grade" class="form-control" min="1" max="100">
                     </div>
                     <div class="form-group">
-                        <label for="bonus-system">Система бонусов</label>
+                        <label for="bonus-system">Bonus System</label>
                         <select id="bonus-system" class="form-control">
-                            <option value="enabled">Включена</option>
-                            <option value="disabled">Отключена</option>
+                            <option value="enabled">Enabled</option>
+                            <option value="disabled">Disabled</option>
                         </select>
                     </div>
                 </div>
-                <button class="btn btn-primary" id="save-settings">Сохранить настройки</button>
+                <div class="settings-group">
+                    <h3>Language Settings</h3>
+                    <div class="form-group">
+                        <label for="language-select">Interface Language</label>
+                        <select id="language-select" class="form-control">
+                            <option value="en">English</option>
+                            <option value="ru">Русский</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="save-settings">Save</button>
             </div>
         </section>
 
-        <!-- Аналитика студента -->
+<!-- Student Analytics -->
         <section id="student-analytics" class="section">
-            <div class="analytics-header">
-                <div class="student-profile-summary">
-                    <div class="student-avatar-large" id="analytics-student-avatar"></div>
-                    <div>
+            <div class="analytics-grid">
+                <!-- Left Column -->
+                <div class="analytics-profile-column">
+                    <div class="student-profile-card">
+                        <div class="student-avatar-large" id="analytics-student-avatar"></div>
                         <h2 id="analytics-student-name"></h2>
                         <p id="analytics-student-group"></p>
-                    </div>
-                </div>
-                <div class="analytics-stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon blue">
-                            <i data-lucide="calendar-check"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3 id="analytics-attendance-rate">0%</h3>
-                            <p>Посещаемость</p>
+                        <div class="profile-contact-info" id="analytics-student-contact">
+                            <!-- Contact info will be dynamically added here -->
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon purple">
-                            <i data-lucide="trophy"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3 id="analytics-average-grade">0</h3>
-                            <p>Средний балл</p>
+                    <div class="student-profile-card">
+                        <h3>Additional Information</h3>
+                        <div id="analytics-student-details">
+                            <!-- Additional student details like DOB, class will be added here -->
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="analytics-content-grid">
-                <div class="chart-container">
-                    <h3>Динамика оценок</h3>
-                    <canvas id="studentGradesChart"></canvas>
-                </div>
-                <div class="activity-container">
-                    <h3>Последние комментарии</h3>
-                    <div id="analytics-recent-comments" class="activity-list">
-                        <!-- Recent comments will be loaded here -->
+                <!-- Right Column -->
+                <div class="analytics-main-column">
+                    <div class="analytics-stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon blue">
+                                <i data-lucide="calendar-check"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="analytics-attendance-rate">0%</h3>
+                                <p>Attendance</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon red">
+                                <i data-lucide="calendar-x"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="analytics-missed-lessons">0</h3>
+                                <p>Missed Lessons</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon orange">
+                                <i data-lucide="clipboard-list"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="analytics-total-lessons">0</h3>
+                                <p>Total Lessons</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon purple">
+                                <i data-lucide="trophy"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="analytics-average-grade">0</h3>
+                                <p>Average Grade</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="analytics-section-card">
+                        <h3>Grade Dynamics</h3>
+                        <div class="chart-container">
+                            <canvas id="studentGradesChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="analytics-grid-2-col">
+                        <div class="analytics-section-card">
+                            <h3>Recent Comments</h3>
+                            <div id="analytics-recent-comments" class="comments-list"></div>
+                        </div>
+                        <div class="analytics-section-card">
+                            <h3>Weekly Scores</h3>
+                            <div class="weekly-scores-controls">
+                                <button class="btn btn-secondary btn-small" id="analytics-prev-month-btn">
+                                    <i data-lucide="chevron-left"></i>
+                                </button>
+                                <span id="analytics-current-month-display" class="month-display"></span>
+                                <button class="btn btn-secondary btn-small" id="analytics-next-month-btn">
+                                    <i data-lucide="chevron-right"></i>
+                                </button>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="studentWeeklyScoresChart"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
     </main>
 
-    <!-- Модальное окно для студентов -->
+<!-- Student Modal -->
     <div id="student-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="student-modal-title">Добавить студента</h2>
+                <h2 id="student-modal-title">Add Student</h2>
                 <button class="modal-close">
                     <i data-lucide="x"></i>
                 </button>
@@ -346,185 +406,232 @@
             <form id="student-form">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="student-name">Имя *</label>
+                        <label for="student-name">First Name *</label>
                         <input type="text" id="student-name" required>
                     </div>
                     <div class="form-group">
-                        <label for="student-surname">Фамилия *</label>
+                        <label for="student-surname">Last Name *</label>
                         <input type="text" id="student-surname" required>
                     </div>
                     <div class="form-group">
-                        <label for="student-email">Email</label>
-                        <input type="email" id="student-email">
+                        <label for="student-dob">Date of Birth</label>
+                        <input type="date" id="student-dob">
                     </div>
                     <div class="form-group">
-                        <label for="student-phone">Телефон</label>
+                        <label for="student-class-letter">Class Letter</label>
+                        <select id="student-class-letter">
+                            <option value="">Select Letter</option>
+                            <option value="А">А</option>
+                            <option value="Б">Б</option>
+                            <option value="В">В</option>
+                            <option value="Г">Г</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="student-class-number">Class Number</label>
+                        <select id="student-class-number">
+                            <option value="">Select Number</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="student-phone">Phone</label>
                         <input type="tel" id="student-phone">
                     </div>
                     <div class="form-group">
-                        <label for="student-group">Группа</label>
+                        <label for="student-group">Group</label>
                         <select id="student-group">
-                            <option value="">Выберите группу</option>
+                            <option value="">Select Group</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="student-status">Статус</label>
+                        <label for="student-status">Status</label>
                         <select id="student-status">
-                            <option value="active">Активный</option>
-                            <option value="archived">Архив</option>
+                            <option value="active">Active</option>
+                            <option value="archived">Archived</option>
                         </select>
+                    </div>
+                    <div class="form-group avatar-upload-group">
+                        <label for="student-avatar-upload">Profile Photo</label>
+                        <div class="avatar-upload-wrapper">
+                            <div class="avatar-preview" id="student-avatar-preview"></div>
+                            <input type="file" id="student-avatar-upload" accept="image/*" class="avatar-upload-input">
+                            <label for="student-avatar-upload" class="avatar-upload-label btn btn-secondary">
+                                <i data-lucide="upload"></i>
+                                <span>Choose File</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
-                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                    <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Модальное окно для групп -->
+<!-- Group Modal -->
     <div id="group-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="group-modal-title">Создать группу</h2>
+                <h2 id="group-modal-title">Create Group</h2>
                 <button class="modal-close">
                     <i data-lucide="x"></i>
                 </button>
             </div>
             <form id="group-form">
                 <div class="form-group">
-                    <label for="group-name">Название группы *</label>
+                    <label for="group-name">Group Name *</label>
                     <input type="text" id="group-name" required>
                 </div>
                 <div class="form-group">
-                    <label for="group-description">Описание</label>
+                    <label for="group-description">Description</label>
                     <textarea id="group-description" rows="3"></textarea>
                 </div>
                 <div class="form-group">
-                    <label for="group-color">Цвет группы</label>
+                    <label for="group-color">Group Color</label>
                     <input type="color" id="group-color" value="#2563eb">
                 </div>
+                <div class="form-group avatar-upload-group">
+                    <label for="group-avatar-upload">Group Photo</label>
+                    <div class="avatar-upload-wrapper">
+                        <div class="avatar-preview" id="group-avatar-preview"></div>
+                        <input type="file" id="group-avatar-upload" accept="image/*" class="avatar-upload-input">
+                        <label for="group-avatar-upload" class="avatar-upload-label btn btn-secondary">
+                            <i data-lucide="upload"></i>
+                            <span>Choose File</span>
+                        </label>
+                    </div>
+                </div>
                 <div class="form-group">
-                    <label>Расписание</label>
+                    <label>Schedule</label>
                     <div class="schedule-grid">
                         <div class="schedule-item">
                             <input type="checkbox" id="monday">
-                            <label for="monday">Пн</label>
+                            <label for="monday">Mon</label>
                             <input type="time" id="monday-time" disabled>
                         </div>
                         <div class="schedule-item">
                             <input type="checkbox" id="tuesday">
-                            <label for="tuesday">Вт</label>
+                            <label for="tuesday">Tue</label>
                             <input type="time" id="tuesday-time" disabled>
                         </div>
                         <div class="schedule-item">
                             <input type="checkbox" id="wednesday">
-                            <label for="wednesday">Ср</label>
+                            <label for="wednesday">Wed</label>
                             <input type="time" id="wednesday-time" disabled>
                         </div>
                         <div class="schedule-item">
                             <input type="checkbox" id="thursday">
-                            <label for="thursday">Чт</label>
+                            <label for="thursday">Thu</label>
                             <input type="time" id="thursday-time" disabled>
                         </div>
                         <div class="schedule-item">
                             <input type="checkbox" id="friday">
-                            <label for="friday">Пт</label>
+                            <label for="friday">Fri</label>
                             <input type="time" id="friday-time" disabled>
                         </div>
                         <div class="schedule-item">
                             <input type="checkbox" id="saturday">
-                            <label for="saturday">Сб</label>
+                            <label for="saturday">Sat</label>
                             <input type="time" id="saturday-time" disabled>
                         </div>
                         <div class="schedule-item">
                             <input type="checkbox" id="sunday">
-                            <label for="sunday">Вс</label>
+                            <label for="sunday">Sun</label>
                             <input type="time" id="sunday-time" disabled>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
-                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                    <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Модальное окно отчетов -->
+<!-- Report Modal -->
     <div id="report-modal" class="modal">
         <div class="modal-content report-modal-content">
             <div class="modal-header">
-                <h2 id="report-modal-title">Отчет</h2>
+                <h2 id="report-modal-title">Report</h2>
                 <button class="modal-close">
                     <i data-lucide="x"></i>
                 </button>
             </div>
             <div id="report-content" class="report-content"></div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary modal-cancel">Закрыть</button>
-                <button type="button" class="btn btn-primary" id="export-report">Экспорт PDF</button>
+                <button type="button" class="btn btn-secondary modal-cancel">Close</button>
+                <button type="button" class="btn btn-primary" id="export-report">Export PDF</button>
             </div>
         </div>
     </div>
 
-    <!-- Модальное окно для комментариев -->
+<!-- Comment Modal -->
     <div id="comment-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="comment-modal-title">Добавить комментарий</h2>
+                <h2 id="comment-modal-title">Add Comment</h2>
                 <button class="modal-close">
                     <i data-lucide="x"></i>
                 </button>
             </div>
             <form id="comment-form">
                 <div class="form-group">
-                    <label for="comment-text">Комментарий</label>
+                    <label for="comment-text">Comment</label>
                     <textarea id="comment-text" rows="5"></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
-                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                    <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Модальное окно для выбора параметров отчета -->
+<!-- Report Options Modal -->
     <div id="report-options-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="report-options-modal-title">Параметры отчета</h2>
+                <h2 id="report-options-modal-title">Report Options</h2>
                 <button class="modal-close">
                     <i data-lucide="x"></i>
                 </button>
             </div>
             <form id="report-options-form">
                 <div class="form-group">
-                    <label for="report-group-select">Группа</label>
+                    <label for="report-group-select">Group</label>
                     <select id="report-group-select" class="form-control">
-                        <option value="all">Все группы</option>
+                        <option value="all">All Groups</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="report-student-select">Студент</label>
+                    <label for="report-student-select">Student</label>
                     <select id="report-student-select" class="form-control" disabled>
-                        <option value="all">Все студенты</option>
+                        <option value="all">All Students</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="report-start-date">Начальная дата</label>
+                    <label for="report-start-date">Start Date</label>
                     <input type="date" id="report-start-date" class="form-control">
                 </div>
                 <div class="form-group">
-                    <label for="report-end-date">Конечная дата</label>
+                    <label for="report-end-date">End Date</label>
                     <input type="date" id="report-end-date" class="form-control">
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary modal-cancel">Отмена</button>
-                    <button type="submit" class="btn btn-primary" id="generate-filtered-report-btn">Сгенерировать отчет</button>
+                    <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="generate-filtered-report-btn">Generate Report</button>
                 </div>
             </form>
         </div>
